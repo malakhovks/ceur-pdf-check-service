@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ceur-pdf-check INPUT [--output REPORT.md] [--tests TESTS]
+
+INPUT may be a single PDF file or a directory containing PDF files.
+
+Options:
+  -o, --output REPORT.md  Markdown report path. Defaults to ./ceur-pdf-check-report.md.
+  -t, --tests TESTS       CEUR test set to run. Defaults to all.
+  -h, --help              Show this help.
+
+Examples:
+  ceur-pdf-check paper.pdf --output report.md
+  ceur-pdf-check /work/papers --tests "readable copyright genai"
+EOF
+}
+
+error() {
+  echo "ceur-pdf-check: $*" >&2
+}
+
+INPUT=""
+OUTPUT=""
+TESTS="all"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -o|--output)
+      if [[ $# -lt 2 || "$2" == -* ]]; then
+        error "--output requires a report path"
+        exit 2
+      fi
+      OUTPUT="$2"
+      shift 2
+      ;;
+    -t|--tests)
+      if [[ $# -lt 2 || "$2" == -* ]]; then
+        error "--tests requires a test list"
+        exit 2
+      fi
+      TESTS="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      error "unknown option: $1"
+      usage >&2
+      exit 2
+      ;;
+    *)
+      if [[ -n "$INPUT" ]]; then
+        error "only one input path is supported"
+        usage >&2
+        exit 2
+      fi
+      INPUT="$1"
+      shift
+      ;;
+  esac
+done
+
+if [[ $# -gt 0 ]]; then
+  if [[ -n "$INPUT" ]]; then
+    error "only one input path is supported"
+    usage >&2
+    exit 2
+  fi
+  INPUT="$1"
+fi
+
+if [[ -z "$INPUT" ]]; then
+  error "missing input PDF file or directory"
+  usage >&2
+  exit 2
+fi
+
+if [[ -z "$OUTPUT" ]]; then
+  OUTPUT="$PWD/ceur-pdf-check-report.md"
+elif [[ "$OUTPUT" != /* ]]; then
+  OUTPUT="$PWD/$OUTPUT"
+fi
+
+if [[ ! -e "$INPUT" ]]; then
+  error "input path does not exist: $INPUT"
+  exit 2
+fi
+
+INPUT_PATH="$(realpath "$INPUT")"
+OUTPUT_DIR="$(dirname "$OUTPUT")"
+mkdir -p "$OUTPUT_DIR" || {
+  error "cannot create report directory: $OUTPUT_DIR"
+  exit 2
+}
+
+WORKDIR="$(mktemp -d)"
+RAW_LOG="$WORKDIR/check-pdf-errors.raw.log"
+CLEAN_LOG="$WORKDIR/check-pdf-errors.clean.log"
+FINDINGS="$WORKDIR/findings.log"
+INPUT_LIST="$WORKDIR/input-files.log"
+trap 'rm -rf "$WORKDIR"' EXIT
+
+if [[ -f "$INPUT_PATH" ]]; then
+  if [[ "${INPUT_PATH,,}" != *.pdf ]]; then
+    error "single-file input must be a PDF: $INPUT_PATH"
+    exit 2
+  fi
+  cp "$INPUT_PATH" "$WORKDIR/"
+elif [[ -d "$INPUT_PATH" ]]; then
+  while IFS= read -r -d '' pdf; do
+    cp "$pdf" "$WORKDIR/"
+  done < <(find "$INPUT_PATH" -maxdepth 1 -type f -iname '*.pdf' -print0 | sort -z)
+  for companion in index.html watermark-log.txt; do
+    if [[ -f "$INPUT_PATH/$companion" ]]; then
+      cp "$INPUT_PATH/$companion" "$WORKDIR/"
+    fi
+  done
+else
+  error "input must be a PDF file or directory: $INPUT_PATH"
+  exit 2
+fi
+
+find "$WORKDIR" -maxdepth 1 -type f -iname '*.pdf' -printf '%f\n' | sort > "$INPUT_LIST"
+PDF_COUNT="$(wc -l < "$INPUT_LIST" | tr -d ' ')"
+if [[ "$PDF_COUNT" -eq 0 ]]; then
+  error "no PDF files found in input: $INPUT_PATH"
+  exit 2
+fi
+
+(
+  cd "$WORKDIR" || exit 1
+  check-pdf-errors "$TESTS"
+) >"$RAW_LOG" 2>&1
+CHECK_EXIT=$?
+
+perl -pe 's/\r/\n/g' "$RAW_LOG" > "$CLEAN_LOG"
+FINDING_PATTERN='^(PDF file |Error: |ERROR | ==========>| ===>| --> |WARNING:|Can.t open |No file with filetype|Unexpected error)'
+grep -E "$FINDING_PATTERN" "$CLEAN_LOG" > "$FINDINGS" || true
+
+FINDING_COUNT="$(wc -l < "$FINDINGS" | tr -d ' ')"
+STATUS="pass"
+if [[ "$CHECK_EXIT" -ne 0 || "$FINDING_COUNT" -gt 0 ]]; then
+  STATUS="fail"
+fi
+
+{
+  echo "# CEUR PDF Check Report"
+  echo
+  echo "| Field | Value |"
+  echo "| --- | --- |"
+  echo "| Status | $STATUS |"
+  echo "| Generated | $(date -u '+%Y-%m-%dT%H:%M:%SZ') |"
+  echo "| Input | $INPUT_PATH |"
+  echo "| PDF count | $PDF_COUNT |"
+  echo "| Tests | $TESTS |"
+  echo "| Checker exit code | $CHECK_EXIT |"
+  echo "| Finding lines | $FINDING_COUNT |"
+  echo
+  echo "## Checked PDFs"
+  echo
+  while IFS= read -r pdf_name; do
+    echo "- $pdf_name"
+  done < "$INPUT_LIST"
+  echo
+  echo "## Findings"
+  echo
+  if [[ "$FINDING_COUNT" -eq 0 ]]; then
+    echo "No likely findings were detected in the CEUR checker output."
+  else
+    while IFS= read -r line; do
+      echo "- $line"
+    done < "$FINDINGS"
+  fi
+  echo
+  echo "## Raw CEUR Output"
+  echo
+  echo '```text'
+  cat "$CLEAN_LOG"
+  echo '```'
+} > "$OUTPUT"
+
+echo "Report written to $OUTPUT"
+echo "Status: $STATUS"
+
+if [[ "$STATUS" != "pass" ]]; then
+  exit 1
+fi
+
+exit 0

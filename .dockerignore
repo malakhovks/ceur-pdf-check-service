@@ -1,0 +1,6 @@
+.git
+*.pdf
+*.log
+ceur-pdf-check-report.md
+report.md
+__pycache__/
