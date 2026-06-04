@@ -1,8 +1,28 @@
-FROM debian:bookworm-slim
+FROM node:22-bookworm-slim AS deps
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM node:22-bookworm-slim AS builder
+
+WORKDIR /app
+ARG NEXT_PUBLIC_GITHUB_REPO_URL
+ENV NEXT_PUBLIC_GITHUB_REPO_URL=${NEXT_PUBLIC_GITHUB_REPO_URL}
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+FROM node:22-bookworm-slim AS runner
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/opt/ceur
 ENV PATH=/opt/ceur/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -32,5 +52,10 @@ RUN mkdir -p /opt/ceur/bin \
 COPY bin/ceur-pdf-check /usr/local/bin/ceur-pdf-check
 RUN chmod +x /usr/local/bin/ceur-pdf-check
 
-WORKDIR /work
-ENTRYPOINT ["ceur-pdf-check"]
+WORKDIR /app
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+EXPOSE 3000
+CMD ["node", "server.js"]

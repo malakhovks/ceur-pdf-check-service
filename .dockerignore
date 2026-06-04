@@ -1,4 +1,9 @@
+.ms-playwright/
 .git
+.next
+node_modules
+playwright-report
+test-results
 *.pdf
 *.log
 ceur-pdf-check-report.md

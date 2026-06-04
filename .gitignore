@@ -1,3 +1,8 @@
+.ms-playwright/
+node_modules/
+.next/
+playwright-report/
+test-results/
 *.pdf
 *.log
 ceur-pdf-check-report.md

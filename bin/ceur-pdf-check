@@ -23,6 +23,15 @@ error() {
   echo "ceur-pdf-check: $*" >&2
 }
 
+copy_input_file() {
+  local source_path="$1"
+
+  cp "$source_path" "$WORKDIR/" || {
+    error "cannot copy input file: $source_path"
+    exit 2
+  }
+}
+
 INPUT=""
 OUTPUT=""
 TESTS="all"
@@ -91,19 +100,36 @@ elif [[ "$OUTPUT" != /* ]]; then
   OUTPUT="$PWD/$OUTPUT"
 fi
 
+if [[ -d "$OUTPUT" ]]; then
+  error "output path must be a file, not a directory: $OUTPUT"
+  exit 2
+fi
+
 if [[ ! -e "$INPUT" ]]; then
   error "input path does not exist: $INPUT"
   exit 2
 fi
 
-INPUT_PATH="$(realpath "$INPUT")"
+INPUT_PATH="$(realpath "$INPUT")" || {
+  error "cannot resolve input path: $INPUT"
+  exit 2
+}
+
 OUTPUT_DIR="$(dirname "$OUTPUT")"
 mkdir -p "$OUTPUT_DIR" || {
   error "cannot create report directory: $OUTPUT_DIR"
   exit 2
 }
 
-WORKDIR="$(mktemp -d)"
+if ! command -v check-pdf-errors >/dev/null 2>&1; then
+  error "check-pdf-errors is not available on PATH"
+  exit 2
+fi
+
+WORKDIR="$(mktemp -d)" || {
+  error "cannot create temporary work directory"
+  exit 2
+}
 RAW_LOG="$WORKDIR/check-pdf-errors.raw.log"
 CLEAN_LOG="$WORKDIR/check-pdf-errors.clean.log"
 FINDINGS="$WORKDIR/findings.log"
@@ -115,14 +141,14 @@ if [[ -f "$INPUT_PATH" ]]; then
     error "single-file input must be a PDF: $INPUT_PATH"
     exit 2
   fi
-  cp "$INPUT_PATH" "$WORKDIR/"
+  copy_input_file "$INPUT_PATH"
 elif [[ -d "$INPUT_PATH" ]]; then
   while IFS= read -r -d '' pdf; do
-    cp "$pdf" "$WORKDIR/"
+    copy_input_file "$pdf"
   done < <(find "$INPUT_PATH" -maxdepth 1 -type f -iname '*.pdf' -print0 | sort -z)
   for companion in index.html watermark-log.txt; do
     if [[ -f "$INPUT_PATH/$companion" ]]; then
-      cp "$INPUT_PATH/$companion" "$WORKDIR/"
+      copy_input_file "$INPUT_PATH/$companion"
     fi
   done
 else
@@ -153,7 +179,7 @@ if [[ "$CHECK_EXIT" -ne 0 || "$FINDING_COUNT" -gt 0 ]]; then
   STATUS="fail"
 fi
 
-{
+if ! {
   echo "# CEUR PDF Check Report"
   echo
   echo "| Field | Value |"
@@ -187,7 +213,10 @@ fi
   echo '```text'
   cat "$CLEAN_LOG"
   echo '```'
-} > "$OUTPUT"
+} > "$OUTPUT"; then
+  error "cannot write report: $OUTPUT"
+  exit 2
+fi
 
 echo "Report written to $OUTPUT"
 echo "Status: $STATUS"
