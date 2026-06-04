@@ -14,12 +14,14 @@ import {
 } from "lucide-react";
 
 type CheckResponse = {
+  requestId?: string;
   filename?: string;
   status?: string;
   findingCount?: number | null;
   exitCode?: number | null;
   report?: string;
   error?: string;
+  queuedMs?: number;
 };
 
 const repoUrl = process.env.NEXT_PUBLIC_GITHUB_REPO_URL || "https://github.com/your-org/ceur-pdf-check";
@@ -53,6 +55,8 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const requestSequenceRef = useRef(0);
 
   const resetResult = () => {
     setReport("");
@@ -61,7 +65,15 @@ export default function Home() {
     setExitCode(null);
   };
 
+  const cancelActiveRequest = () => {
+    requestSequenceRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsChecking(false);
+  };
+
   const selectFile = (candidate: File | undefined) => {
+    cancelActiveRequest();
     setError("");
     resetResult();
 
@@ -93,6 +105,13 @@ export default function Home() {
   const runCheck = async () => {
     if (!file || isChecking) return;
 
+    const requestToken = requestSequenceRef.current + 1;
+    requestSequenceRef.current = requestToken;
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const isCurrentRequest = () => requestSequenceRef.current === requestToken && abortRef.current === controller;
+
     setIsChecking(true);
     setError("");
     resetResult();
@@ -106,10 +125,15 @@ export default function Home() {
       const response = await fetch("/api/check", {
         method: "POST",
         body: form,
+        signal: controller.signal,
       });
       const payload = (await response.json().catch(() => ({
         error: "The checker API returned an unreadable response.",
       }))) as CheckResponse;
+
+      if (!isCurrentRequest()) {
+        return;
+      }
 
       if (!response.ok) {
         handledApiError = true;
@@ -125,6 +149,10 @@ export default function Home() {
       setFindingCount(payload.findingCount ?? null);
       setExitCode(payload.exitCode ?? null);
     } catch (checkError) {
+      if (!isCurrentRequest() || controller.signal.aborted) {
+        return;
+      }
+
       if (!handledApiError) {
         setStatus("error");
         setFindingCount(null);
@@ -133,7 +161,10 @@ export default function Home() {
       }
       setError(checkError instanceof Error ? checkError.message : "The checker failed.");
     } finally {
-      setIsChecking(false);
+      if (isCurrentRequest()) {
+        setIsChecking(false);
+        abortRef.current = null;
+      }
     }
   };
 

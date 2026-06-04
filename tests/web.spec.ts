@@ -3,6 +3,12 @@ import { expect, test } from "@playwright/test";
 
 const samplePdfPath = path.resolve("Malakhov_et_al_UkrPROG_2026_id_22_revised.pdf");
 
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function pdfFixture(name: string) {
   return {
     name,
@@ -39,6 +45,59 @@ test("rejects non-PDF selections and leaves no stale report", async ({ page }) =
   await expect(page.getByRole("button", { name: "Download report.md" })).toBeDisabled();
 });
 
+test("prevents duplicate submissions while a check is active", async ({ page }) => {
+  let requestCount = 0;
+
+  await page.route("/api/check", async (route) => {
+    requestCount += 1;
+    await delay(150);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        requestId: "request-1",
+        filename: "active.pdf",
+        status: "pass",
+        findingCount: 0,
+        exitCode: 0,
+        queuedMs: 0,
+        report: "# CEUR PDF Check Report\n\nActive request complete",
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("active.pdf"));
+
+  await page.getByRole("button", { name: "Run check" }).click();
+  await expect(page.getByRole("button", { name: "Checking" })).toBeDisabled();
+  await expect(page.getByText("Active request complete")).toBeVisible();
+  expect(requestCount).toBe(1);
+});
+
+test("shows queue overload errors from the checker API", async ({ page }) => {
+  await page.route("/api/check", async (route) => {
+    await route.fulfill({
+      status: 429,
+      contentType: "application/json",
+      body: JSON.stringify({
+        requestId: "busy-request",
+        status: "error",
+        error: "The checker is busy. Try again shortly.",
+        queue: { active: 2, pending: 8, maxConcurrent: 2, maxQueued: 8 },
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("busy.pdf"));
+  await page.getByRole("button", { name: "Run check" }).click();
+
+  await expect(page.getByRole("alert").filter({ hasText: "The checker is busy. Try again shortly." })).toBeVisible();
+  await expect(page.getByText("Error").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download report.md" })).toBeDisabled();
+});
+
 test("clears stale results when selecting another PDF and surfaces API errors", async ({ page }) => {
   let requestCount = 0;
 
@@ -50,10 +109,12 @@ test("clears stale results when selecting another PDF and surfaces API errors", 
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          requestId: "first-request",
           filename: "first.pdf",
           status: "pass",
           findingCount: 0,
           exitCode: 0,
+          queuedMs: 0,
           report: "# CEUR PDF Check Report\n\nFirst report",
         }),
       });
@@ -64,11 +125,13 @@ test("clears stale results when selecting another PDF and surfaces API errors", 
       status: 500,
       contentType: "application/json",
       body: JSON.stringify({
+        requestId: "second-request",
         error: "The checker finished without producing a Markdown report.",
         filename: "second.pdf",
         status: "unknown",
         findingCount: null,
         exitCode: 2,
+        queuedMs: 0,
         report: "# CEUR PDF Check Report\n\nFallback process output",
       }),
     });
@@ -91,6 +154,57 @@ test("clears stale results when selecting another PDF and surfaces API errors", 
   await expect(page.getByRole("alert").filter({ hasText: "The checker finished without producing a Markdown report." })).toBeVisible();
   await expect(page.getByText("Fallback process output")).toBeVisible();
   await expect(page.getByText("Unknown").first()).toBeVisible();
+});
+
+test("ignores stale check responses after selecting another PDF", async ({ page }) => {
+  let finishFirstRequest: (() => void) | undefined;
+
+  await page.route("/api/check", async (route) => {
+    const form = route.request().postData() || "";
+    if (form.includes("slow.pdf")) {
+      await new Promise<void>((resolve) => {
+        finishFirstRequest = resolve;
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          requestId: "slow-request",
+          filename: "slow.pdf",
+          status: "pass",
+          findingCount: 0,
+          exitCode: 0,
+          queuedMs: 0,
+          report: "# CEUR PDF Check Report\n\nSlow stale report",
+        }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        requestId: "new-request",
+        filename: "new.pdf",
+        status: "pass",
+        findingCount: 0,
+        exitCode: 0,
+        queuedMs: 0,
+        report: "# CEUR PDF Check Report\n\nNew report",
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("slow.pdf"));
+  await page.getByRole("button", { name: "Run check" }).click();
+  await expect(page.getByRole("button", { name: "Checking" })).toBeDisabled();
+
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("new.pdf"));
+  finishFirstRequest?.();
+  await expect(page.getByText("Slow stale report")).not.toBeVisible();
+  await expect(page.getByText("new.pdf")).toBeVisible();
 });
 
 test("checks a PDF and downloads the Markdown report", async ({ page }) => {

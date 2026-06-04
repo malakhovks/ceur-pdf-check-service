@@ -61,6 +61,19 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ceur-pdf-check \
   --output /work/report.md
 ```
 
+## Parallel Requests
+
+The web API limits concurrent CEUR checker processes per container. Tune the
+limits with environment variables when running the image:
+
+- `CEUR_MAX_CONCURRENT_CHECKS`, default `2`
+- `CEUR_MAX_QUEUED_CHECKS`, default `8`
+- `CEUR_QUEUE_TIMEOUT_MS`, default `15000`
+
+Requests over the active and queued limits return `429` with a retry-friendly
+error message. These limits are per container; use external queueing if multiple
+replicas need a shared global limit.
+
 ## Local Development
 
 Install dependencies and run the UI locally:
