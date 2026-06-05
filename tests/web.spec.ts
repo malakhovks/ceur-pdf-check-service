@@ -64,6 +64,51 @@ async function expectNoDocumentScroll(page: import("@playwright/test").Page) {
   })).toEqual({ y: 0, htmlOverflow: "hidden", bodyOverflow: "hidden" });
 }
 
+async function signInForTests(page: import("@playwright/test").Page) {
+  await page.goto("/sign-in");
+  await expect(page.getByTestId("sign-in-panel")).toBeVisible();
+  await page.getByRole("button", { name: "Use test account" }).click();
+  await expect(page.getByTestId("app-shell")).toBeVisible();
+  await expect(page.getByTestId("signed-in-user")).toContainText("Test User");
+}
+
+const unauthenticatedTests = new Set([
+  "requires Google Sign-In before showing the app",
+  "rejects checker API requests without a session",
+]);
+
+test.beforeEach(async ({ page }, testInfo) => {
+  if (unauthenticatedTests.has(testInfo.title)) {
+    return;
+  }
+
+  await signInForTests(page);
+});
+
+test("requires Google Sign-In before showing the app", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page).toHaveURL(/\/sign-in/);
+  await expect(page.getByRole("heading", { name: "CEUR PDF Check" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Use test account" })).toBeVisible();
+  await expect(page.getByTestId("app-shell")).not.toBeVisible();
+});
+
+test("rejects checker API requests without a session", async ({ request }) => {
+  const response = await request.post("/api/check", {
+    multipart: {
+      file: pdfFixture("blocked.pdf"),
+    },
+  });
+
+  expect(response.status()).toBe(401);
+  await expect(response.json()).resolves.toEqual(expect.objectContaining({
+    status: "error",
+    error: "Authentication required.",
+  }));
+});
+
 test("shows Ukrainian UI by default and switches to English", async ({ page }) => {
   await page.goto("/");
 

@@ -4,6 +4,7 @@
 node_modules
 playwright-report
 test-results
+.env
 *.pdf
 *.log
 ceur-pdf-check-report.md

@@ -21,8 +21,21 @@ Stop the service:
 docker compose --env-file .env down
 ```
 
-Upload a PDF, run the check, read the generated Markdown report, and download
-`report.md`.
+Sign in with Google, upload a PDF, run the check, read the generated Markdown
+report, and download `report.md`. The dashboard and `/api/check` require an
+authenticated Google session; `/api/health` stays public for Docker health
+checks.
+
+Configure Google OAuth in `.env` before deployment:
+
+- `AUTH_SECRET`: a high-entropy secret, for example from `openssl rand -base64 32`
+- `AUTH_GOOGLE_ID`: Google OAuth client ID
+- `AUTH_GOOGLE_SECRET`: Google OAuth client secret
+- `AUTH_TRUST_HOST=true`: required for containerized deployments
+
+Register `http://localhost:3000/api/auth/callback/google` as a local Google
+OAuth redirect URI, and use the matching production URL for deployed hosts.
+Any Google account with a verified email address can use the app.
 
 The GitHub link uses `NEXT_PUBLIC_GITHUB_REPO_URL` at build time. Rebuild the
 image after changing it in `.env`.
@@ -93,8 +106,18 @@ Run checks:
 
 ```bash
 bash -n bin/ceur-pdf-check
-docker compose --env-file .env build
-docker compose --env-file .env up -d
+AUTH_SECRET=dev-only-auth-secret-change-me-minimum-32-chars \
+AUTH_GOOGLE_ID=test-client-id \
+AUTH_GOOGLE_SECRET=test-client-secret \
+AUTH_TEST_MODE=true \
+AUTH_TEST_LOGIN_TOKEN=test-login-token \
+  docker compose --env-file .env build
+AUTH_SECRET=dev-only-auth-secret-change-me-minimum-32-chars \
+AUTH_GOOGLE_ID=test-client-id \
+AUTH_GOOGLE_SECRET=test-client-secret \
+AUTH_TEST_MODE=true \
+AUTH_TEST_LOGIN_TOKEN=test-login-token \
+  docker compose --env-file .env up -d
 docker compose --env-file .env ps
 docker compose --env-file .env exec -T ceur-pdf-check ceur-pdf-check --help
 docker run --rm --network host \

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "../../../auth";
 import {
   getCheckerQueueSnapshot,
   isCheckerQueueFull,
@@ -195,6 +196,11 @@ function overloadResponse(requestId: string, message: string) {
 
 export async function POST(request: NextRequest) {
   const requestId = randomUUID();
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json({ requestId, status: "error", error: "Authentication required." }, { status: 401 });
+  }
 
   if (contentLengthTooLarge(request)) {
     return NextResponse.json({ requestId, status: "error", error: "PDF uploads are limited to 30 MB." }, { status: 413 });

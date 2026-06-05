@@ -12,6 +12,12 @@ services:
       CEUR_MAX_QUEUED_CHECKS: ${CEUR_MAX_QUEUED_CHECKS:-8}
       CEUR_QUEUE_TIMEOUT_MS: ${CEUR_QUEUE_TIMEOUT_MS:-15000}
       NEXT_PUBLIC_GITHUB_REPO_URL: ${NEXT_PUBLIC_GITHUB_REPO_URL:-https://github.com/your-org/ceur-pdf-check}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-only-auth-secret-change-me-minimum-32-chars}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
+      AUTH_TEST_MODE: ${AUTH_TEST_MODE:-false}
+      AUTH_TEST_LOGIN_TOKEN: ${AUTH_TEST_LOGIN_TOKEN:-}
     ports:
       - "${APP_PORT:-3000}:3000"
     restart: unless-stopped
