@@ -5,28 +5,31 @@ official `check-pdf-errors` tool and saving the result as Markdown.
 
 ## Web UI
 
-Build the image:
+Configure deployment defaults in `.env`, then build and start the service with
+Docker Compose:
 
 ```bash
-docker build -t ceur-pdf-check .
+docker compose --env-file .env up --build -d
 ```
 
-Run the web UI:
+Open `http://localhost:${APP_PORT}`. With the default `.env`, that is
+`http://localhost:3000`.
+
+Stop the service:
 
 ```bash
-docker run --rm -p 3000:3000 ceur-pdf-check
+docker compose --env-file .env down
 ```
 
-Open `http://localhost:3000`, upload a PDF, run the check, read the generated
-Markdown report, and download `report.md`.
+Upload a PDF, run the check, read the generated Markdown report, and download
+`report.md`.
 
-The GitHub badge uses `NEXT_PUBLIC_GITHUB_REPO_URL` at build time. If it is not
-provided, the UI shows a placeholder GitHub repo link.
+The GitHub link uses `NEXT_PUBLIC_GITHUB_REPO_URL` at build time. Rebuild the
+image after changing it in `.env`.
 
 ```bash
-docker build \
-  --build-arg NEXT_PUBLIC_GITHUB_REPO_URL="https://github.com/your-org/ceur-pdf-check" \
-  -t ceur-pdf-check .
+docker compose --env-file .env build --no-cache
+docker compose --env-file .env up -d
 ```
 
 ## CLI
@@ -34,13 +37,14 @@ docker build \
 The image also keeps the command-line checker available:
 
 ```bash
-docker run --rm ceur-pdf-check ceur-pdf-check --help
+docker compose --env-file .env run --rm ceur-pdf-check ceur-pdf-check --help
 ```
 
 For host-owned output files, run the CLI with your user and a mounted workdir:
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ceur-pdf-check \
+docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/work" ceur-pdf-check \
   ceur-pdf-check /work/Malakhov_et_al_UkrPROG_2026_id_22_revised.pdf \
   --output /work/report.md
 ```
@@ -48,14 +52,16 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ceur-pdf-check \
 Check all PDFs in a directory:
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ceur-pdf-check \
+docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/work" ceur-pdf-check \
   ceur-pdf-check /work --output /work/report.md
 ```
 
 Run a subset of CEUR checks:
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ceur-pdf-check \
+docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/work" ceur-pdf-check \
   ceur-pdf-check /work \
   --tests "readable copyright genai libertinus pagecount" \
   --output /work/report.md
@@ -64,7 +70,7 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/work" ceur-pdf-check \
 ## Parallel Requests
 
 The web API limits concurrent CEUR checker processes per container. Tune the
-limits with environment variables when running the image:
+limits in `.env`:
 
 - `CEUR_MAX_CONCURRENT_CHECKS`, default `2`
 - `CEUR_MAX_QUEUED_CHECKS`, default `8`
@@ -87,8 +93,10 @@ Run checks:
 
 ```bash
 bash -n bin/ceur-pdf-check
-docker build -t ceur-pdf-check .
-docker run --rm -d --name ceur-pdf-check-web -p 3000:3000 ceur-pdf-check
+docker compose --env-file .env build
+docker compose --env-file .env up -d
+docker compose --env-file .env ps
+docker compose --env-file .env exec -T ceur-pdf-check ceur-pdf-check --help
 docker run --rm --network host \
   -v "$PWD:/work" \
   -v ceur-pdf-check-node-modules:/work/node_modules \
@@ -98,9 +106,9 @@ docker run --rm --network host \
   -v "$PWD:/work" \
   -v ceur-pdf-check-node-modules:/work/node_modules \
   -w /work \
-  -e PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
+  -e PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:3000}" \
   mcr.microsoft.com/playwright:v1.60.0-noble npm run test:e2e
-docker rm -f ceur-pdf-check-web
+docker compose --env-file .env down
 ```
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The

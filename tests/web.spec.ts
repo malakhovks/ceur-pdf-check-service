@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 
@@ -17,20 +18,158 @@ function pdfFixture(name: string) {
   };
 }
 
-test("shows the initial upload and report state", async ({ page }) => {
+function sampleReport(extraRaw = "WARNING: raw English output") {
+  return [
+    "# CEUR PDF Check Report",
+    "",
+    "| Field | Value |",
+    "| --- | --- |",
+    "| Status | fail |",
+    "| Generated | 2026-06-05T00:00:00Z |",
+    "| Input | /tmp/paper.pdf |",
+    "| PDF count | 1 |",
+    "| Tests | all |",
+    "| Checker exit code | 1 |",
+    "| Finding lines | 2 |",
+    "",
+    "## Checked PDFs",
+    "",
+    "- paper.pdf",
+    "",
+    "## Findings",
+    "",
+    "- WARNING: example finding",
+    "",
+    "## Raw CEUR Output",
+    "",
+    "```text",
+    extraRaw,
+    "Can't open index.html: No such file or directory.",
+    "```",
+  ].join("\n");
+}
+
+async function switchToEnglish(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "English" }).click();
+}
+
+async function expectNoDocumentScroll(page: import("@playwright/test").Page) {
+  await expect.poll(async () => page.evaluate(() => {
+    window.scrollTo(0, 1000);
+    return {
+      y: window.scrollY,
+      htmlOverflow: getComputedStyle(document.documentElement).overflow,
+      bodyOverflow: getComputedStyle(document.body).overflow,
+    };
+  })).toEqual({ y: 0, htmlOverflow: "hidden", bodyOverflow: "hidden" });
+}
+
+test("shows Ukrainian UI by default and switches to English", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "CEUR PDF Check" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "GitHub Repo" })).toBeVisible();
-  await expect(page.getByText("Official CEUR checker", { exact: true })).toBeVisible();
+  await expect(page.getByText("Генератор звіту перевірки рукопису")).toBeVisible();
+  await expect(page.getByText("Завантаження рукопису")).toBeVisible();
+  await expect(page.getByText("Markdown-вивід перевірки")).toBeVisible();
+  await expect(page.getByText("Файл не вибрано")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Запустити перевірку" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Завантажити report.md" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Українська" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Check profile")).not.toBeVisible();
+  await expectNoDocumentScroll(page);
+
+  await switchToEnglish(page);
+  await expect(page.getByText("Manuscript validation report generator")).toBeVisible();
   await expect(page.getByText("Upload manuscript")).toBeVisible();
   await expect(page.getByText("Markdown validation output")).toBeVisible();
   await expect(page.getByText("No file selected")).toBeVisible();
   await expect(page.getByRole("button", { name: "Run check" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Download report.md" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
+  await expectNoDocumentScroll(page);
 });
 
-test("rejects non-PDF selections and leaves no stale report", async ({ page }) => {
+test("uses reference dashboard colors and rounded forms", async ({ page }) => {
+  await page.goto("/");
+
+  const palette = await page.evaluate(() => {
+    const appShell = document.querySelector('[data-testid="app-shell"]')!;
+    const dashboardPanel = document.querySelector('[data-testid="dashboard-panel"]')!;
+    const header = document.querySelector('[data-testid="dashboard-header"]')!;
+    const dropzone = document.querySelector('[data-testid="upload-dropzone"]')!;
+    const styles = {
+      body: getComputedStyle(document.body),
+      appShell: getComputedStyle(appShell),
+      dashboardPanel: getComputedStyle(dashboardPanel),
+      header: getComputedStyle(header),
+      dropzone: getComputedStyle(dropzone),
+    };
+
+    return {
+      bodyBackground: styles.body.backgroundColor,
+      shellBackgroundImage: styles.appShell.backgroundImage,
+      panelBackgroundColor: styles.dashboardPanel.backgroundColor,
+      panelBorderColor: styles.dashboardPanel.borderColor,
+      headerBackgroundColor: styles.header.backgroundColor,
+      dropzoneBackgroundColor: styles.dropzone.backgroundColor,
+      dropzoneBorderColor: styles.dropzone.borderColor,
+      dropzoneBorderRadius: styles.dropzone.borderRadius,
+    };
+  });
+
+  expect(palette.bodyBackground).toBe("rgb(231, 239, 231)");
+  expect(palette.shellBackgroundImage).toContain("rgb(238, 244, 238)");
+  expect(palette.shellBackgroundImage).toContain("rgb(221, 231, 223)");
+  expect(palette.panelBackgroundColor).toMatch(/rgba\(255, 255, 255, 0\.72\)|color\(srgb 1 1 1 \/ 0\.72\)|oklab\([^)]*\/ 0\.72\)/);
+  expect(palette.panelBorderColor).toMatch(/rgba\(255, 255, 255, 0\.7\)|color\(srgb 1 1 1 \/ 0\.7\)|oklab\([^)]*\/ 0\.7\)/);
+  expect(palette.headerBackgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(palette.dropzoneBackgroundColor).toMatch(/rgba\(255, 255, 255, 0\.72\)|color\(srgb 1 1 1 \/ 0\.72\)|oklab\([^)]*\/ 0\.72\)/);
+  expect(palette.dropzoneBorderColor).toMatch(/rgba\(255, 255, 255, 0\.7\)|color\(srgb 1 1 1 \/ 0\.7\)|oklab\([^)]*\/ 0\.7\)/);
+  expect(parseFloat(palette.dropzoneBorderRadius)).toBeGreaterThanOrEqual(24);
+
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("styled.pdf"));
+  const runButton = page.getByRole("button", { name: "Запустити перевірку" });
+  await expect(runButton).toBeEnabled();
+  await expect(runButton).toHaveClass(/reference-dark/);
+  await expect.poll(async () => runButton.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(15, 23, 42)");
+  const runButtonBorderRadius = await runButton.evaluate((element) => getComputedStyle(element).borderRadius);
+  expect(parseFloat(runButtonBorderRadius)).toBeGreaterThanOrEqual(20);
+  await expectNoDocumentScroll(page);
+});
+
+test("aligns dashboard controls with report surfaces on desktop", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop column alignment is not used on mobile");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const boxes = await page.evaluate(() => {
+    const rectFor = (testId: string) => {
+      const rect = document.querySelector(`[data-testid="${testId}"]`)!.getBoundingClientRect();
+      return {
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+        height: rect.height,
+      };
+    };
+
+    return {
+      dropzone: rectFor("upload-dropzone"),
+      stats: rectFor("stats-grid"),
+      action: rectFor("action-panel"),
+      report: rectFor("report-surface"),
+      notes: rectFor("notes-surface"),
+    };
+  });
+
+  expect(Math.abs(boxes.dropzone.height - boxes.stats.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(boxes.report.right - boxes.stats.right)).toBeLessThanOrEqual(1);
+  expect(Math.abs(boxes.notes.left - boxes.action.left)).toBeLessThanOrEqual(1);
+  expect(Math.abs(boxes.notes.right - boxes.action.right)).toBeLessThanOrEqual(1);
+  expect(Math.abs(boxes.notes.width - boxes.action.width)).toBeLessThanOrEqual(1);
+  await expectNoDocumentScroll(page);
+});
+
+test("rejects non-PDF selections with localized errors", async ({ page }) => {
   await page.goto("/");
 
   await page.locator('input[type="file"]').setInputFiles({
@@ -39,6 +178,8 @@ test("rejects non-PDF selections and leaves no stale report", async ({ page }) =
     buffer: Buffer.from("not a pdf"),
   });
 
+  await expect(page.getByRole("alert").filter({ hasText: "Можна перевіряти лише PDF-файли." })).toBeVisible();
+  await switchToEnglish(page);
   await expect(page.getByRole("alert").filter({ hasText: "Only PDF files can be checked." })).toBeVisible();
   await expect(page.getByText("No file selected")).toBeVisible();
   await expect(page.getByRole("button", { name: "Run check" })).toBeDisabled();
@@ -61,7 +202,7 @@ test("prevents duplicate submissions while a check is active", async ({ page }) 
         findingCount: 0,
         exitCode: 0,
         queuedMs: 0,
-        report: "# CEUR PDF Check Report\n\nActive request complete",
+        report: sampleReport("Active request complete"),
       }),
     });
   });
@@ -69,13 +210,13 @@ test("prevents duplicate submissions while a check is active", async ({ page }) 
   await page.goto("/");
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("active.pdf"));
 
-  await page.getByRole("button", { name: "Run check" }).click();
-  await expect(page.getByRole("button", { name: "Checking" })).toBeDisabled();
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+  await expect(page.getByRole("button", { name: "Перевірка" })).toBeDisabled();
   await expect(page.getByText("Active request complete")).toBeVisible();
   expect(requestCount).toBe(1);
 });
 
-test("shows queue overload errors from the checker API", async ({ page }) => {
+test("shows queue overload errors from the checker API in both languages", async ({ page }) => {
   await page.route("/api/check", async (route) => {
     await route.fulfill({
       status: 429,
@@ -91,11 +232,80 @@ test("shows queue overload errors from the checker API", async ({ page }) => {
 
   await page.goto("/");
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("busy.pdf"));
-  await page.getByRole("button", { name: "Run check" }).click();
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
 
+  await expect(page.getByRole("alert").filter({ hasText: "Перевірник зайнятий. Спробуйте ще раз трохи пізніше." })).toBeVisible();
+  await expect(page.getByText("Помилка").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Завантажити report.md" })).toBeDisabled();
+
+  await switchToEnglish(page);
   await expect(page.getByRole("alert").filter({ hasText: "The checker is busy. Try again shortly." })).toBeVisible();
-  await expect(page.getByText("Error").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Download report.md" })).toBeDisabled();
+});
+
+test("translates reports in Ukrainian and preserves raw English output in downloads", async ({ page }) => {
+  await page.route("/api/check", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        requestId: "translated-request",
+        filename: "paper.pdf",
+        status: "fail",
+        findingCount: 2,
+        exitCode: 1,
+        queuedMs: 0,
+        report: sampleReport(),
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("paper.pdf"));
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+
+  await expect(page.getByText("Звіт перевірки CEUR PDF")).toBeVisible();
+  await expect(page.getByText("| Статус | Знахідки |")).toBeVisible();
+  await expect(page.getByText("## Сирий вивід CEUR (англійською)")).toBeVisible();
+  await expect(page.getByText("WARNING: raw English output")).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Завантажити report.md" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  expect(downloadPath).toBeTruthy();
+  const content = await readFile(downloadPath!, "utf8");
+  expect(content).toContain("# Звіт перевірки CEUR PDF");
+  expect(content).toContain("## Сирий вивід CEUR (англійською)");
+  expect(content).toContain("WARNING: raw English output");
+});
+
+test("uses internal report scrolling for long output", async ({ page }) => {
+  const longRawOutput = Array.from({ length: 120 }, (_, index) => `WARNING: raw English output line ${index + 1}`).join("\n");
+
+  await page.route("/api/check", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        requestId: "long-request",
+        filename: "long.pdf",
+        status: "fail",
+        findingCount: 120,
+        exitCode: 1,
+        queuedMs: 0,
+        report: sampleReport(longRawOutput),
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("long.pdf"));
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+  await expect(page.getByText("WARNING: raw English output line 120")).toBeVisible();
+
+  const report = page.getByLabel("Markdown-звіт перевірки");
+  await expect.poll(async () => report.evaluate((element) => element.scrollHeight > element.clientHeight)).toBeTruthy();
+  await expectNoDocumentScroll(page);
 });
 
 test("clears stale results when selecting another PDF and surfaces API errors", async ({ page }) => {
@@ -115,7 +325,7 @@ test("clears stale results when selecting another PDF and surfaces API errors", 
           findingCount: 0,
           exitCode: 0,
           queuedMs: 0,
-          report: "# CEUR PDF Check Report\n\nFirst report",
+          report: sampleReport("First report"),
         }),
       });
       return;
@@ -140,20 +350,20 @@ test("clears stale results when selecting another PDF and surfaces API errors", 
   await page.goto("/");
 
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("first.pdf"));
-  await page.getByRole("button", { name: "Run check" }).click();
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
   await expect(page.getByText("First report")).toBeVisible();
-  await expect(page.getByText("Passed").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Download report.md" })).toBeEnabled();
+  await expect(page.getByText("Пройдено").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Завантажити report.md" })).toBeEnabled();
 
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("second.pdf"));
   await expect(page.getByText("First report")).not.toBeVisible();
-  await expect(page.getByText("Waiting").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Download report.md" })).toBeDisabled();
+  await expect(page.getByText("Очікування").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Завантажити report.md" })).toBeDisabled();
 
-  await page.getByRole("button", { name: "Run check" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "The checker finished without producing a Markdown report." })).toBeVisible();
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Перевірник завершився без створення Markdown-звіту." })).toBeVisible();
   await expect(page.getByText("Fallback process output")).toBeVisible();
-  await expect(page.getByText("Unknown").first()).toBeVisible();
+  await expect(page.getByText("Невідомо").first()).toBeVisible();
 });
 
 test("ignores stale check responses after selecting another PDF", async ({ page }) => {
@@ -175,7 +385,7 @@ test("ignores stale check responses after selecting another PDF", async ({ page 
           findingCount: 0,
           exitCode: 0,
           queuedMs: 0,
-          report: "# CEUR PDF Check Report\n\nSlow stale report",
+          report: sampleReport("Slow stale report"),
         }),
       });
       return;
@@ -191,15 +401,15 @@ test("ignores stale check responses after selecting another PDF", async ({ page 
         findingCount: 0,
         exitCode: 0,
         queuedMs: 0,
-        report: "# CEUR PDF Check Report\n\nNew report",
+        report: sampleReport("New report"),
       }),
     });
   });
 
   await page.goto("/");
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("slow.pdf"));
-  await page.getByRole("button", { name: "Run check" }).click();
-  await expect(page.getByRole("button", { name: "Checking" })).toBeDisabled();
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+  await expect(page.getByRole("button", { name: "Перевірка" })).toBeDisabled();
 
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("new.pdf"));
   finishFirstRequest?.();
@@ -207,16 +417,20 @@ test("ignores stale check responses after selecting another PDF", async ({ page 
   await expect(page.getByText("new.pdf")).toBeVisible();
 });
 
-test("checks a PDF and downloads the Markdown report", async ({ page }) => {
+test("checks a PDF and can switch the real report back to English", async ({ page }) => {
   await page.goto("/");
 
   await page.locator('input[type="file"]').setInputFiles(samplePdfPath);
   await expect(page.getByText("Malakhov_et_al_UkrPROG_2026_id_22_revised.pdf")).toBeVisible();
 
-  await page.getByRole("button", { name: "Run check" }).click();
-  await expect(page.getByText("CEUR PDF Check Report")).toBeVisible({ timeout: 90_000 });
-  await expect(page.getByText("Finding lines")).toBeVisible();
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+  await expect(page.getByText("Звіт перевірки CEUR PDF")).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByText("Сирий вивід CEUR (англійською)")).toBeVisible();
   await expect(page.getByText("Can't open index.html: No such file or directory.")).toBeVisible();
+
+  await switchToEnglish(page);
+  await expect(page.getByText("CEUR PDF Check Report")).toBeVisible();
+  await expect(page.getByText("Finding lines")).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download report.md" }).click();

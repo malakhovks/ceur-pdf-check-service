@@ -2,17 +2,29 @@
 
 :root {
   color-scheme: light;
+  --app-ink: #0f172a;
+  --app-muted: #64748b;
+  --app-warm-bg: #e7efe7;
+  --app-panel: rgba(255, 255, 255, 0.72);
+  --app-panel-strong: rgba(255, 255, 255, 0.55);
+  --app-border: rgba(255, 255, 255, 0.7);
+  --app-accent: #047857;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
-  background: #f5f7fb;
-  color: #0f172a;
+  background: var(--app-warm-bg);
+  color: var(--app-ink);
   font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -27,9 +39,26 @@ button {
 }
 
 .surface {
-  border: 1px solid rgba(203, 213, 225, 0.9);
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--app-border);
+  background: var(--app-panel);
+  box-shadow: 0 12px 28px rgba(30, 28, 24, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+
+.reference-dark {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.reference-dark:hover {
+  background: #1d293d;
+}
+
+.reference-disabled {
+  cursor: not-allowed;
+  background: #cad5e2;
+  color: #64748b;
 }
 
 .font-display {

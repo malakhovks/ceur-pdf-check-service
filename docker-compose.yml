@@ -1,0 +1,23 @@
+services:
+  ceur-pdf-check:
+    image: ceur-pdf-check:latest
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_GITHUB_REPO_URL: ${NEXT_PUBLIC_GITHUB_REPO_URL:-https://github.com/your-org/ceur-pdf-check}
+    env_file:
+      - .env
+    environment:
+      CEUR_MAX_CONCURRENT_CHECKS: ${CEUR_MAX_CONCURRENT_CHECKS:-2}
+      CEUR_MAX_QUEUED_CHECKS: ${CEUR_MAX_QUEUED_CHECKS:-8}
+      CEUR_QUEUE_TIMEOUT_MS: ${CEUR_QUEUE_TIMEOUT_MS:-15000}
+      NEXT_PUBLIC_GITHUB_REPO_URL: ${NEXT_PUBLIC_GITHUB_REPO_URL:-https://github.com/your-org/ceur-pdf-check}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
