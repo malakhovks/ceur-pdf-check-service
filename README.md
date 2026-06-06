@@ -32,10 +32,21 @@ Configure Google OAuth in `.env` before deployment:
 - `AUTH_GOOGLE_ID`: Google OAuth client ID
 - `AUTH_GOOGLE_SECRET`: Google OAuth client secret
 - `AUTH_TRUST_HOST=true`: required for containerized deployments
+- `AUTH_URL`: the browser-visible app origin, for example `http://localhost:3000` locally or `https://your-domain.com` in production
 
 Register `http://localhost:3000/api/auth/callback/google` as a local Google
 OAuth redirect URI, and use the matching production URL for deployed hosts.
+Do not use `0.0.0.0` in Google OAuth redirect URIs; it is only a server bind
+address and is not a valid browser callback host.
 Any Google account with a verified email address can use the app.
+
+For local Google Console setup, use:
+
+- Authorized JavaScript origin: `http://localhost:3000`
+- Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
+
+For production, set `AUTH_URL` to the public HTTPS origin and register the
+matching `/api/auth/callback/google` redirect URI.
 
 The GitHub link uses `NEXT_PUBLIC_GITHUB_REPO_URL` at build time. Rebuild the
 image after changing it in `.env`.
@@ -133,6 +144,10 @@ docker run --rm --network host \
   mcr.microsoft.com/playwright:v1.60.0-noble npm run test:e2e
 docker compose --env-file .env down
 ```
+
+The e2e suite authenticates with the disabled-by-default test provider. Enable
+it only for local or CI verification by setting `AUTH_TEST_MODE=true` and
+`AUTH_TEST_LOGIN_TOKEN` on the app container before running Playwright.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.
