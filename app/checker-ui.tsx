@@ -273,10 +273,16 @@ function translateReportMetadata(section: string) {
     .replace(/^\| Tests \|/gm, "| Тести |")
     .replace(/^\| Checker exit code \|/gm, "| Код виходу перевірника |")
     .replace(/^\| Finding lines \|/gm, "| Рядки знахідок |")
+    .replace(/^\| Reference status \| pass \|$/m, "| Статус посилань | Пройдено |")
+    .replace(/^\| Reference status \| fail \|$/m, "| Статус посилань | Знахідки |")
+    .replace(/^\| Reference errors \|/gm, "| Помилки посилань |")
     .replace(/^## Checked PDFs$/m, "## Перевірені PDF")
+    .replace(/^## Reference Check$/m, "## Перевірка посилань")
     .replace(/^## Findings$/m, "## Знахідки")
     .replace(/^## Process Output$/m, "## Вивід процесу (англійською)")
     .replace(/No likely findings were detected in the CEUR checker output\./g, "У виводі перевірника CEUR не виявлено ймовірних знахідок.")
+    .replace(/No reference errors were detected\./g, "Помилок у посиланнях не виявлено.")
+    .replace(/No CEURART-style reference errors detected\./g, "Помилок формату CEURART у посиланнях не виявлено.")
     .replace(/The checker did not produce a Markdown report\./g, "Перевірник не створив Markdown-звіт.");
 }
 

@@ -51,7 +51,8 @@ RUN mkdir -p /opt/ceur/bin \
     && chmod +x /opt/ceur/bin/check-pdf-errors /opt/ceur/bin/check-libbyhead.py
 
 COPY bin/ceur-pdf-check /usr/local/bin/ceur-pdf-check
-RUN chmod +x /usr/local/bin/ceur-pdf-check
+COPY bin/ceur-reference-check /usr/local/bin/ceur-reference-check
+RUN chmod 755 /usr/local/bin/ceur-pdf-check /usr/local/bin/ceur-reference-check
 
 WORKDIR /app
 COPY --from=builder /app/public ./public

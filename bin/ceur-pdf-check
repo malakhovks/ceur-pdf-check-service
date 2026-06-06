@@ -133,6 +133,8 @@ WORKDIR="$(mktemp -d)" || {
 RAW_LOG="$WORKDIR/check-pdf-errors.raw.log"
 CLEAN_LOG="$WORKDIR/check-pdf-errors.clean.log"
 FINDINGS="$WORKDIR/findings.log"
+REFERENCE_REPORT="$WORKDIR/reference-check.md"
+REFERENCE_ERRORS="$WORKDIR/reference-errors.log"
 INPUT_LIST="$WORKDIR/input-files.log"
 trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -174,8 +176,25 @@ FINDING_PATTERN='^(PDF file |Error: |ERROR | ==========>| ===>| --> |WARNING:|Ca
 grep -E "$FINDING_PATTERN" "$CLEAN_LOG" > "$FINDINGS" || true
 
 FINDING_COUNT="$(wc -l < "$FINDINGS" | tr -d ' ')"
+mapfile -t PDF_FILES < "$INPUT_LIST"
+(
+  cd "$WORKDIR" || exit 1
+  ceur-reference-check -- "${PDF_FILES[@]}"
+) > "$REFERENCE_REPORT" 2>&1
+REFERENCE_EXIT=$?
+grep -E '^- ERROR:' "$REFERENCE_REPORT" > "$REFERENCE_ERRORS" || true
+REFERENCE_ERROR_COUNT="$(wc -l < "$REFERENCE_ERRORS" | tr -d ' ')"
+if [[ "$REFERENCE_EXIT" -ne 0 && "$REFERENCE_ERROR_COUNT" -eq 0 ]]; then
+  echo "- ERROR: Reference checker exited with code $REFERENCE_EXIT without a structured error." >> "$REFERENCE_REPORT"
+  REFERENCE_ERROR_COUNT=1
+fi
+REFERENCE_STATUS="pass"
+if [[ "$REFERENCE_ERROR_COUNT" -gt 0 ]]; then
+  REFERENCE_STATUS="fail"
+fi
+
 STATUS="pass"
-if [[ "$CHECK_EXIT" -ne 0 || "$FINDING_COUNT" -gt 0 ]]; then
+if [[ "$CHECK_EXIT" -ne 0 || "$FINDING_COUNT" -gt 0 || "$REFERENCE_STATUS" != "pass" ]]; then
   STATUS="fail"
 fi
 
@@ -191,12 +210,18 @@ if ! {
   echo "| Tests | $TESTS |"
   echo "| Checker exit code | $CHECK_EXIT |"
   echo "| Finding lines | $FINDING_COUNT |"
+  echo "| Reference status | $REFERENCE_STATUS |"
+  echo "| Reference errors | $REFERENCE_ERROR_COUNT |"
   echo
   echo "## Checked PDFs"
   echo
   while IFS= read -r pdf_name; do
     echo "- $pdf_name"
   done < "$INPUT_LIST"
+  echo
+  echo "## Reference Check"
+  echo
+  cat "$REFERENCE_REPORT"
   echo
   echo "## Findings"
   echo

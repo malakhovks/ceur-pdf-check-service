@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+"""Validate rendered CEURART-style references in manuscript PDFs."""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+
+YEAR_RE = re.compile(r"\b(?:19|20)\d{2}[a-z]?\b", re.IGNORECASE)
+LABEL_RE = re.compile(r"(?<!\w)\[(\d{1,3})\]\s+")
+MALFORMED_LABEL_RE = re.compile(r"(?m)^\s*(?:\[\D+[^\]]*\]|\(?\d{1,3}\)?[.)])\s+")
+RAW_MARKUP_RE = re.compile(
+  r"(?:\\(?:bibitem|bibliography|cite|url|doi|begin|end)\b|"
+  r"@\s*(?:article|book|inproceedings|incollection|inbook|misc|"
+  r"phdthesis|mastersthesis|proceedings|techreport)\s*\{|[{}])",
+  re.IGNORECASE,
+)
+DOI_RE = re.compile(r"(?<![A-Za-z0-9])10\.\d{4,9}/[^\s,;]+", re.IGNORECASE)
+URL_RE = re.compile(r"https?://[^\s<>()]+", re.IGNORECASE)
+DETAIL_RE = re.compile(
+  r"(?:doi:\s*10\.|URL:\s*https?://|\bpp\.?\s*\d+|\b\d+\s*[-\u2013\u2014]\s*\d+\b|"
+  r"\b(?:volume|vol\.?)\s*\d+|\b(?:Press|Springer|Wiley|ACM|IEEE|University|"
+  r"Institute|Association|Society|Journal|Communications|Proceedings|Addison[- ]Wesley|"
+  r"Technical Report|thesis|Patent|To appear)\b)",
+  re.IGNORECASE,
+)
+NEXT_SECTION_RE = re.compile(
+  r"^(?:appendix\b|appendices\b|"
+  r"[A-Z]\.\s+(?:online resources|appendix|supplementary|additional)\b)",
+  re.IGNORECASE,
+)
+
+
+@dataclass
+class ReferenceEntry:
+  label: int
+  text: str
+
+
+@dataclass
+class CheckResult:
+  name: str
+  reference_count: int
+  errors: list[str]
+
+
+def collapse_whitespace(value: str) -> str:
+  return re.sub(r"\s+", " ", value).strip()
+
+
+def markdown_text(value: str) -> str:
+  return value.replace("\\", "\\\\").replace("`", "\\`")
+
+
+def normalize_text(value: str) -> str:
+  return value.replace("\r\n", "\n").replace("\r", "\n").replace("\f", "\n")
+
+
+def extract_text_from_pdf(pdf_path: Path) -> str:
+  result = subprocess.run(
+    ["pdftotext", "-layout", "-enc", "UTF-8", str(pdf_path), "-"],
+    check=False,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=True,
+  )
+
+  if result.returncode != 0:
+    stderr = collapse_whitespace(result.stderr) or "pdftotext failed without an error message"
+    raise RuntimeError(stderr)
+
+  return result.stdout
+
+
+def find_reference_section(text: str) -> str | None:
+  lines = normalize_text(text).split("\n")
+  start_index: int | None = None
+
+  for index, line in enumerate(lines):
+    heading = collapse_whitespace(line).strip(":").lower()
+    if heading in {"references", "bibliography"}:
+      start_index = index + 1
+      break
+
+  if start_index is None:
+    return None
+
+  section_lines: list[str] = []
+  saw_label = False
+  for line in lines[start_index:]:
+    stripped = line.strip()
+    if LABEL_RE.search(stripped):
+      saw_label = True
+    if saw_label and stripped and NEXT_SECTION_RE.match(stripped) and not LABEL_RE.search(stripped):
+      break
+    section_lines.append(line)
+
+  return "\n".join(section_lines).strip()
+
+
+def parse_entries(section_text: str) -> list[ReferenceEntry]:
+  matches = list(LABEL_RE.finditer(section_text))
+  entries: list[ReferenceEntry] = []
+
+  for index, match in enumerate(matches):
+    next_start = matches[index + 1].start() if index + 1 < len(matches) else len(section_text)
+    entry_text = collapse_whitespace(section_text[match.end():next_start])
+    entries.append(ReferenceEntry(label=int(match.group(1)), text=entry_text))
+
+  return entries
+
+
+def has_bad_url_or_doi_format(text: str) -> list[str]:
+  errors: list[str] = []
+
+  for match in DOI_RE.finditer(text):
+    prefix = text[max(0, match.start() - 12):match.start()]
+    if not re.search(r"doi:\s*$", prefix, re.IGNORECASE):
+      errors.append("DOI values must be rendered with the CEURART prefix `doi:`.")
+      break
+
+  for match in URL_RE.finditer(text):
+    prefix = text[max(0, match.start() - 8):match.start()]
+    if not re.search(r"URL:\s*$", prefix, re.IGNORECASE):
+      errors.append("URLs must be rendered with the CEURART prefix `URL:`.")
+      break
+
+  return errors
+
+
+def validate_entry(entry: ReferenceEntry) -> list[str]:
+  text = collapse_whitespace(entry.text)
+  errors: list[str] = []
+  label = f"[{entry.label}]"
+
+  if len(text) < 30:
+    errors.append(f"{label} is too short to be a complete bibliographic entry.")
+
+  if RAW_MARKUP_RE.search(text):
+    errors.append(f"{label} contains raw LaTeX or BibTeX markup.")
+
+  if not YEAR_RE.search(text):
+    errors.append(f"{label} is missing a publication year.")
+
+  first_clause = text.split(",", 1)[0].strip()
+  if "," not in text or len(first_clause) < 2 or not re.search(r"[A-Za-z]", first_clause):
+    errors.append(f"{label} must start with an author or editor segment followed by a comma.")
+
+  if text.count(",") < 2 and " in: " not in text.lower():
+    errors.append(f"{label} is missing the CEURART author/title/publication structure.")
+
+  if not DETAIL_RE.search(text):
+    errors.append(f"{label} is missing publication detail such as pages, DOI, URL, venue, publisher, or thesis/patent information.")
+
+  errors.extend(f"{label} {message}" for message in has_bad_url_or_doi_format(text))
+  return errors
+
+
+def validate_reference_text(name: str, text: str) -> CheckResult:
+  errors: list[str] = []
+  section = find_reference_section(text)
+
+  if section is None:
+    return CheckResult(name=name, reference_count=0, errors=["Reference section was not found."])
+
+  if RAW_MARKUP_RE.search(section):
+    errors.append("Reference section contains raw LaTeX or BibTeX markup.")
+
+  entries = parse_entries(section)
+  if not entries:
+    if MALFORMED_LABEL_RE.search(section):
+      errors.append("References must use bracketed numeric labels such as `[1]`, `[2]`, ... .")
+    else:
+      errors.append("Reference section does not contain numbered reference entries.")
+    return CheckResult(name=name, reference_count=0, errors=errors)
+
+  labels = [entry.label for entry in entries]
+  expected = list(range(1, len(entries) + 1))
+  if labels != expected:
+    errors.append(f"Reference labels must be sequential from [1]; found {', '.join(f'[{label}]' for label in labels)}.")
+
+  for entry in entries:
+    errors.extend(validate_entry(entry))
+
+  return CheckResult(name=name, reference_count=len(entries), errors=errors)
+
+
+def render_markdown(results: list[CheckResult]) -> str:
+  total_errors = sum(len(result.errors) for result in results)
+  lines: list[str] = []
+
+  if total_errors == 0:
+    lines.append("No reference errors were detected.")
+  else:
+    lines.append(f"{total_errors} reference error(s) detected.")
+  lines.append("")
+
+  for result in results:
+    status = "fail" if result.errors else "pass"
+    lines.append(f"### {markdown_text(result.name)}")
+    lines.append(f"- Status: {status}")
+    lines.append(f"- References detected: {result.reference_count}")
+    if result.errors:
+      for error in result.errors:
+        lines.append(f"- ERROR: {markdown_text(error)}")
+    else:
+      lines.append("- No CEURART-style reference errors detected.")
+    lines.append("")
+
+  return "\n".join(lines).rstrip() + "\n"
+
+
+def build_parser() -> argparse.ArgumentParser:
+  parser = argparse.ArgumentParser(
+    description="Validate rendered CEURART-style reference sections in PDFs.",
+  )
+  parser.add_argument(
+    "--text-file",
+    action="append",
+    default=[],
+    help=argparse.SUPPRESS,
+  )
+  parser.add_argument("pdfs", nargs="*", help="PDF files to inspect")
+  return parser
+
+
+def main(argv: list[str]) -> int:
+  parser = build_parser()
+  args = parser.parse_args(argv)
+
+  if not args.pdfs and not args.text_file:
+    parser.error("at least one PDF file is required")
+
+  results: list[CheckResult] = []
+
+  for text_file in args.text_file:
+    path = Path(text_file)
+    try:
+      results.append(validate_reference_text(path.name, path.read_text(encoding="utf-8")))
+    except OSError as error:
+      results.append(CheckResult(name=str(path), reference_count=0, errors=[f"Cannot read text fixture: {error}."]))
+
+  for pdf in args.pdfs:
+    path = Path(pdf)
+    try:
+      text = extract_text_from_pdf(path)
+      results.append(validate_reference_text(path.name, text))
+    except FileNotFoundError:
+      results.append(CheckResult(name=path.name, reference_count=0, errors=["`pdftotext` is not available on PATH."]))
+    except RuntimeError as error:
+      results.append(CheckResult(name=path.name, reference_count=0, errors=[f"Cannot extract PDF text: {error}."]))
+    except OSError as error:
+      results.append(CheckResult(name=path.name, reference_count=0, errors=[f"Cannot inspect PDF: {error}."]))
+
+  sys.stdout.write(render_markdown(results))
+  return 1 if any(result.errors for result in results) else 0
+
+
+if __name__ == "__main__":
+  raise SystemExit(main(sys.argv[1:]))

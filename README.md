@@ -1,7 +1,8 @@
 # CEUR PDF Check
 
 Dockerized web and CLI service for checking CEUR-WS manuscript PDFs with the
-official `check-pdf-errors` tool and saving the result as Markdown.
+official `check-pdf-errors` tool, CEURART-style rendered reference validation,
+and Markdown report output.
 
 ## Web UI
 
@@ -86,6 +87,13 @@ docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
   --output /work/report.md
 ```
 
+Reports also include a reference check implemented by `ceur-reference-check`.
+The helper extracts each PDF's rendered text with Poppler and validates that the
+References section follows CEURART-style output: bracketed numbered entries,
+sequential labels, publication years, and rendered DOI/URL prefixes such as
+`doi:` and `URL:`. Reference errors are included in `## Reference Check` and fail
+the overall report status.
+
 ## Parallel Requests
 
 The web API limits concurrent CEUR checker processes per container. Tune the
@@ -117,12 +125,14 @@ AUTH_GOOGLE_ID=test-client-id \
 AUTH_GOOGLE_SECRET=test-client-secret \
 AUTH_TEST_MODE=true \
 AUTH_TEST_LOGIN_TOKEN=test-login-token \
+AUTH_URL=http://127.0.0.1:3000 \
   docker compose --env-file .env build
 AUTH_SECRET=dev-only-auth-secret-change-me-minimum-32-chars \
 AUTH_GOOGLE_ID=test-client-id \
 AUTH_GOOGLE_SECRET=test-client-secret \
 AUTH_TEST_MODE=true \
 AUTH_TEST_LOGIN_TOKEN=test-login-token \
+AUTH_URL=http://127.0.0.1:3000 \
   docker compose --env-file .env up -d
 docker compose --env-file .env ps
 docker compose --env-file .env exec -T ceur-pdf-check ceur-pdf-check --help
@@ -135,7 +145,7 @@ docker run --rm --network host \
   -v "$PWD:/work" \
   -v ceur-pdf-check-node-modules:/work/node_modules \
   -w /work \
-  -e PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:3000}" \
+  -e PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
   mcr.microsoft.com/playwright:v1.60.0-noble npm run test:e2e
 docker compose --env-file .env down
 ```
@@ -154,11 +164,15 @@ The image downloads the CEUR scripts during build:
 - `https://ceur-ws.org/ceurtools/check-pdf-errors`
 - `https://ceur-ws.org/ceurtools/check-libbyhead.py`
 
+The image also installs the project-local `ceur-reference-check` helper, which
+uses `pdftotext` from Poppler to validate rendered CEURART-style references.
+
 ## Exit Status
 
-The CLI exits with status `0` when the CEUR checker completes and no likely
-finding lines are detected. It exits nonzero when the checker fails or when the
-output contains likely errors, warnings, or CEUR remediation lines.
+The CLI exits with status `0` when the CEUR checker completes, no likely
+finding lines are detected, and the reference check passes. It exits nonzero
+when the checker fails, when the output contains likely errors, warnings, or
+CEUR remediation lines, or when reference-format errors are found.
 
 The web UI treats nonzero checker exits as completed validations when a Markdown
 report is produced, because CEUR findings are the expected output for invalid
