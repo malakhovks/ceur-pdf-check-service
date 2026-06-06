@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  ExternalLink,
   FileText,
   GitBranch,
   Languages,
@@ -228,7 +229,8 @@ const errorTranslations: Record<string, keyof Translation["errors"]> = {
   "The uploaded file does not look like a PDF.": "fakePdf",
 };
 
-const repoUrl = process.env.NEXT_PUBLIC_GITHUB_REPO_URL || "https://github.com/your-org/ceur-pdf-check";
+const githubRepoUrl = "https://github.com/malakhovks/ceur-pdf-check-service";
+const developerCreditUrl = "https://linktr.ee/malakhovks";
 
 function classNames(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -248,6 +250,13 @@ function formatFileSize(file: File | null, t: Translation) {
 function translateError(message: string, t: Translation) {
   const key = errorTranslations[message];
   return key ? t.errors[key] : message;
+}
+
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function translateReportMetadata(section: string) {
@@ -297,6 +306,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const [error, setError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [todayLabel, setTodayLabel] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestSequenceRef = useRef(0);
@@ -310,6 +320,14 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   useEffect(() => {
     document.documentElement.lang = t.locale;
   }, [t.locale]);
+
+  useEffect(() => {
+    const updateDate = () => setTodayLabel(formatLocalDate(new Date()));
+
+    updateDate();
+    const timer = window.setInterval(updateDate, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const resetResult = () => {
     setReport("");
@@ -447,13 +465,27 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href={repoUrl}
+              href={githubRepoUrl}
               target="_blank"
               rel="noreferrer"
               className="inline-flex h-9 items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 text-sm font-semibold text-slate-700 shadow-[0_12px_28px_rgba(30,28,24,0.08)] transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
             >
               <GitBranch className="h-4 w-4" />
               {t.meta.github}
+            </a>
+            <a
+              data-testid="developer-credit"
+              href={developerCreditUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 max-w-full items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 text-sm font-semibold text-slate-700 shadow-[0_12px_28px_rgba(30,28,24,0.08)] transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+            >
+              <span>Developer</span>
+              <span className="hidden sm:inline">MalakhovKS</span>
+              <span data-testid="developer-credit-date" className="rounded-full bg-white/70 px-2 py-0.5 text-xs text-slate-500">
+                {todayLabel || "0000-00-00"}
+              </span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             </a>
             <div className="inline-flex h-9 items-center gap-1 rounded-full border border-white/70 bg-white/70 p-1 shadow-[0_12px_28px_rgba(30,28,24,0.08)]" role="group" aria-label={t.meta.language}>
               <Languages className="ml-1 h-4 w-4 text-slate-500" aria-hidden="true" />

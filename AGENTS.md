@@ -8,7 +8,7 @@ official CEUR-WS `check-pdf-errors` checker.
 - `Dockerfile` builds the Debian/Node runtime, installs PDF tooling, downloads
   CEUR helper scripts, builds the Next.js app, and serves it on port `3000`.
 - `docker-compose.yml` builds/runs the web service, exposes `${APP_PORT:-3000}`,
-  and passes Auth.js, Google OAuth, checker queue, and public GitHub URL env.
+  and passes Auth.js, Google OAuth, and checker queue env.
 - `bin/ceur-pdf-check` is the Bash CLI. It validates arguments, copies input PDFs
   to a temporary work directory, runs CEUR checks, and writes a Markdown report.
 - `app/` contains the Next.js App Router UI, Auth.js routes, health/check API

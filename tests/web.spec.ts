@@ -133,6 +133,28 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await expectNoDocumentScroll(page);
 });
 
+test("shows developer credit and fixed project links in the header", async ({ page }) => {
+  await page.goto("/");
+
+  const header = page.getByTestId("dashboard-header");
+  await expect(header.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/malakhovks/ceur-pdf-check-service");
+
+  const credit = header.getByTestId("developer-credit");
+  await expect(credit).toHaveAttribute("href", "https://linktr.ee/malakhovks");
+  await expect(credit).toContainText("Developer");
+  await expect(credit).toContainText("MalakhovKS");
+
+  const expectedDate = await page.evaluate(() => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
+  await expect(header.getByTestId("developer-credit-date")).toHaveText(expectedDate);
+  await expectNoDocumentScroll(page);
+});
+
 test("uses reference dashboard colors and rounded forms", async ({ page }) => {
   await page.goto("/");
 

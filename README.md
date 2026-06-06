@@ -48,13 +48,8 @@ For local Google Console setup, use:
 For production, set `AUTH_URL` to the public HTTPS origin and register the
 matching `/api/auth/callback/google` redirect URI.
 
-The GitHub link uses `NEXT_PUBLIC_GITHUB_REPO_URL` at build time. Rebuild the
-image after changing it in `.env`.
-
-```bash
-docker compose --env-file .env build --no-cache
-docker compose --env-file .env up -d
-```
+The dashboard GitHub badge points to the project repository at
+`https://github.com/malakhovks/ceur-pdf-check-service`.
 
 ## CLI
 

@@ -7,8 +7,6 @@ RUN npm ci
 FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
-ARG NEXT_PUBLIC_GITHUB_REPO_URL
-ENV NEXT_PUBLIC_GITHUB_REPO_URL=${NEXT_PUBLIC_GITHUB_REPO_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
