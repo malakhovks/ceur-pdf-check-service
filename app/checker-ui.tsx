@@ -144,7 +144,14 @@ const translations: Record<Language, Translation> = {
       apiFailed: "API перевірки не спрацював.",
       checkerFailed: "Перевірка не спрацювала.",
       busy: "Перевірник зайнятий. Спробуйте ще раз трохи пізніше.",
+      queuedTooLong: "Перевірник зайнятий, і запит очікував слот занадто довго.",
       noReport: "Перевірник завершився без створення Markdown-звіту.",
+      authRequired: "Потрібна автентифікація.",
+      uploadParse: "Не вдалося прочитати завантаження.",
+      missingUpload: "Завантажте PDF-файл, щоб запустити перевірку.",
+      executableMissing: "Виконуваний файл ceur-pdf-check недоступний у PATH.",
+      timeout: "Перевірник перевищив ліміт часу.",
+      unexpected: "Сталася неочікувана помилка перевірника.",
       uploadLimit: "Завантаження PDF обмежене 30 МБ.",
       emptyUpload: "Завантажений PDF порожній.",
       fakePdf: "Завантажений файл не схожий на PDF.",
@@ -209,7 +216,14 @@ const translations: Record<Language, Translation> = {
       apiFailed: "The checker API failed.",
       checkerFailed: "The checker failed.",
       busy: "The checker is busy. Try again shortly.",
+      queuedTooLong: "The checker is busy and this request waited too long for a slot.",
       noReport: "The checker finished without producing a Markdown report.",
+      authRequired: "Authentication required.",
+      uploadParse: "The upload could not be parsed.",
+      missingUpload: "Upload a PDF file to run the check.",
+      executableMissing: "The ceur-pdf-check executable is not available on PATH.",
+      timeout: "The checker exceeded the time limit.",
+      unexpected: "Unexpected checker failure.",
       uploadLimit: "PDF uploads are limited to 30 MB.",
       emptyUpload: "The uploaded PDF is empty.",
       fakePdf: "The uploaded file does not look like a PDF.",
@@ -223,7 +237,14 @@ const errorTranslations: Record<string, keyof Translation["errors"]> = {
   "The checker API failed.": "apiFailed",
   "The checker failed.": "checkerFailed",
   "The checker is busy. Try again shortly.": "busy",
+  "The checker is busy and this request waited too long for a slot.": "queuedTooLong",
   "The checker finished without producing a Markdown report.": "noReport",
+  "Authentication required.": "authRequired",
+  "The upload could not be parsed.": "uploadParse",
+  "Upload a PDF file to run the check.": "missingUpload",
+  "The ceur-pdf-check executable is not available on PATH.": "executableMissing",
+  "The checker timed out after 110 seconds.": "timeout",
+  "Unexpected checker failure.": "unexpected",
   "PDF uploads are limited to 30 MB.": "uploadLimit",
   "The uploaded PDF is empty.": "emptyUpload",
   "The uploaded file does not look like a PDF.": "fakePdf",
@@ -248,6 +269,10 @@ function formatFileSize(file: File | null, t: Translation) {
 }
 
 function translateError(message: string, t: Translation) {
+  if (message.startsWith("The checker timed out after ")) {
+    return t.errors.timeout;
+  }
+
   const key = errorTranslations[message];
   return key ? t.errors[key] : message;
 }
@@ -457,10 +482,10 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
 
   return (
     <main
-      className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(184,227,214,0.65),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(255,224,204,0.4),_transparent_24%),linear-gradient(180deg,_#eef4ee_0%,_#e7efe7_52%,_#dde7df_100%)] text-slate-900"
+      className="h-[100dvh] overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(184,227,214,0.65),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(255,224,204,0.4),_transparent_24%),linear-gradient(180deg,_#eef4ee_0%,_#e7efe7_52%,_#dde7df_100%)] text-slate-900"
       data-testid="app-shell"
     >
-      <div className="mx-auto flex h-screen max-w-[1840px] min-w-0 flex-col overflow-hidden px-3 py-3 sm:px-5 lg:px-6">
+      <div className="mx-auto flex h-full max-h-[100dvh] max-w-[1840px] min-w-0 flex-col overflow-hidden px-3 py-3 sm:px-5 lg:px-6">
         <header
           data-testid="dashboard-header"
           className="mb-3 flex shrink-0 flex-col gap-3 px-1 pt-1 lg:flex-row lg:items-start lg:justify-between"
@@ -502,7 +527,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                   aria-pressed={language === option}
                   onClick={() => setLanguage(option)}
                   className={classNames(
-                    "h-7 rounded-full px-2 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
+                    "h-7 rounded-full px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
                     language === option ? "reference-dark" : "text-slate-700 hover:bg-white/80",
                   )}
                 >
@@ -525,7 +550,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
           </div>
         </header>
 
-        <section data-testid="dashboard-panel" className="surface mb-3 max-h-[38vh] shrink-0 overflow-auto rounded-[30px] px-4 py-3 sm:px-5 xl:max-h-none xl:overflow-visible">
+        <section data-testid="dashboard-panel" className="surface mb-3 max-h-[42dvh] shrink-0 overflow-auto rounded-[30px] px-4 py-3 sm:px-5 xl:max-h-none xl:overflow-visible">
           <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.42fr)_minmax(18rem,0.34fr)]">
             <div className="flex min-h-0">
               <input
@@ -611,7 +636,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 onClick={runCheck}
                 disabled={!file || isChecking}
                 className={classNames(
-                  "mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
+                  "mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 py-2 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
                   !file || isChecking ? "reference-disabled" : "reference-dark",
                 )}
               >
@@ -640,7 +665,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 onClick={downloadReport}
                 disabled={!displayReport}
                 className={classNames(
-                  "inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
+                  "inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
                   displayReport ? "reference-dark" : "reference-disabled",
                 )}
               >

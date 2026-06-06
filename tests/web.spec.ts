@@ -236,6 +236,21 @@ test("aligns dashboard controls with report surfaces on desktop", async ({ page,
   await expectNoDocumentScroll(page);
 });
 
+test("keeps dashboard controls reachable on short mobile viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 560 });
+  await page.goto("/");
+
+  const dashboard = page.getByTestId("dashboard-panel");
+  await expect.poll(async () => dashboard.evaluate((element) => element.scrollHeight > element.clientHeight)).toBeTruthy();
+
+  await dashboard.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+
+  await expect(page.getByRole("button", { name: "Запустити перевірку" })).toBeInViewport();
+  await expectNoDocumentScroll(page);
+});
+
 test("rejects non-PDF selections with localized errors", async ({ page }) => {
   await page.goto("/");
 
@@ -307,6 +322,38 @@ test("shows queue overload errors from the checker API in both languages", async
 
   await switchToEnglish(page);
   await expect(page.getByRole("alert").filter({ hasText: "The checker is busy. Try again shortly." })).toBeVisible();
+});
+
+test("localizes server-side checker API errors", async ({ page }) => {
+  let requestCount = 0;
+
+  await page.route("/api/check", async (route) => {
+    requestCount += 1;
+    const isFirstRequest = requestCount === 1;
+
+    await route.fulfill({
+      status: isFirstRequest ? 400 : 504,
+      contentType: "application/json",
+      body: JSON.stringify({
+        requestId: isFirstRequest ? "upload-parse-request" : "timeout-request",
+        status: "error",
+        error: isFirstRequest ? "The upload could not be parsed." : "The checker timed out after 110 seconds.",
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("parse-error.pdf"));
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+
+  await expect(page.getByRole("alert").filter({ hasText: "Не вдалося прочитати завантаження." })).toBeVisible();
+
+  await switchToEnglish(page);
+  await expect(page.getByRole("alert").filter({ hasText: "The upload could not be parsed." })).toBeVisible();
+
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("timeout.pdf"));
+  await page.getByRole("button", { name: "Run check" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "The checker exceeded the time limit." })).toBeVisible();
 });
 
 test("translates reports in Ukrainian and preserves raw English output in downloads", async ({ page }) => {

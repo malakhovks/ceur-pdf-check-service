@@ -82,7 +82,9 @@ findings or checker failures.
 
 Use TypeScript/React for the web UI. Keep Auth.js server-only code in server
 files (`auth.ts`, route handlers, server pages) and client-only browser behavior
-in `"use client"` components such as `app/checker-ui.tsx`.
+in `"use client"` components such as `app/checker-ui.tsx`. When backend error
+strings change, update the client `errorTranslations` map and Ukrainian/English
+copy together so server-origin failures remain localized.
 
 ## Testing Guidelines
 
@@ -95,7 +97,10 @@ with multiple PDFs and optional `index.html` or `watermark-log.txt` companions.
 
 For web or API changes, rebuild with Docker Compose and run Playwright in
 `mcr.microsoft.com/playwright:v1.60.0-noble`. Keep `/api/health` public and
-verify unauthenticated `/api/check` requests return `401`.
+verify unauthenticated `/api/check` requests return `401`. For dashboard layout
+changes, preserve the no-document-scroll app shell and verify compact viewports
+use internal scrolling for controls and report content. For API error changes,
+verify localized server-side errors in both Ukrainian and English.
 
 ## Commit & Pull Request Guidelines
 

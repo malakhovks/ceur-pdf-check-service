@@ -23,9 +23,12 @@ docker compose --env-file .env down
 ```
 
 Sign in with Google, upload a PDF, run the check, read the generated Markdown
-report, and download `report.md`. The dashboard and `/api/check` require an
-authenticated Google session; `/api/health` stays public for Docker health
-checks.
+report, and download `report.md`. The dashboard localizes checker/API errors in
+Ukrainian and English, including upload parsing, queue, timeout, and missing
+report failures. It keeps the current fixed-shell layout while using internal
+scrolling for long reports and compact mobile viewports. The dashboard and
+`/api/check` require an authenticated Google session; `/api/health` stays public
+for Docker health checks.
 
 Configure Google OAuth in `.env` before deployment:
 
@@ -152,7 +155,10 @@ docker compose --env-file .env down
 
 The e2e suite authenticates with the disabled-by-default test provider. Enable
 it only for local or CI verification by setting `AUTH_TEST_MODE=true` and
-`AUTH_TEST_LOGIN_TOKEN` on the app container before running Playwright.
+`AUTH_TEST_LOGIN_TOKEN` on the app container before running Playwright. The
+web tests cover authentication, localized server-side error handling, fixed-shell
+layout, compact viewport reachability, internal report scrolling, stale response
+handling, and real PDF checks.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.

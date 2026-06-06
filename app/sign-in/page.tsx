@@ -36,7 +36,7 @@ export default async function SignInPage() {
   const testMode = process.env.AUTH_TEST_MODE === "true";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(184,227,214,0.65),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(255,224,204,0.4),_transparent_24%),linear-gradient(180deg,_#eef4ee_0%,_#e7efe7_52%,_#dde7df_100%)] px-4 py-8 text-slate-900">
+    <main className="flex min-h-[100dvh] items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(184,227,214,0.65),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(255,224,204,0.4),_transparent_24%),linear-gradient(180deg,_#eef4ee_0%,_#e7efe7_52%,_#dde7df_100%)] px-4 py-8 text-slate-900">
       <section className="surface w-full max-w-md rounded-[30px] px-5 py-6 sm:px-7 sm:py-7" data-testid="sign-in-panel">
         <div className="flex items-start gap-3">
           <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-emerald-50 text-emerald-800">

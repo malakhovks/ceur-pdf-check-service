@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
-    return NextResponse.json({ requestId, status: "error", error: "Only PDF files are supported." }, { status: 400 });
+    return NextResponse.json({ requestId, status: "error", error: "Only PDF files can be checked." }, { status: 400 });
   }
 
   if (file.size <= 0) {
