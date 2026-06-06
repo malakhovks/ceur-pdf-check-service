@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added PDF, DOCX, DOC, and ODT manuscript checking across the CLI, API, and web dashboard.
+- Added LibreOffice Writer conversion for DOCX, DOC, and ODT manuscripts before CEUR PDF checks.
+- Fixed false `ERROR (P2) with duplicate PDF files!!!!` findings for converted manuscripts by keeping conversion scratch files outside the checker work directory.
+- Added localized upload validation and dashboard copy for supported manuscript formats.
+- Added Playwright regression coverage for converted single-file manuscripts and mixed directory inputs.
 - Added rendered Markdown report preview in the web dashboard, backed by `react-markdown` and `remark-gfm`.
 - Added a report view switcher for rendered preview and raw Markdown source while keeping `report.md` downloads as Markdown.
 - Updated the Ukrainian dashboard subtitle to “Перевірка рукопису для CEUR-WS”.

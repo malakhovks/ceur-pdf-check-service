@@ -35,6 +35,7 @@ RUN apt-get update \
         findutils \
         gawk \
         grep \
+        libreoffice-writer \
         perl \
         poppler-utils \
         python3 \

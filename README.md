@@ -1,8 +1,9 @@
 # CEUR PDF Check
 
-Dockerized web and CLI service for checking CEUR-WS manuscript PDFs with the
-official `check-pdf-errors` tool, CEURART-style rendered reference validation,
-and Markdown report output.
+Dockerized web and CLI service for checking CEUR-WS manuscripts in PDF, DOCX,
+DOC, and ODT formats. DOCX, DOC, and ODT manuscripts are converted to PDF with
+LibreOffice before the official `check-pdf-errors` tool and rendered
+CEURART-style reference validation generate a Markdown report.
 
 ## Web UI
 
@@ -22,11 +23,12 @@ Stop the service:
 docker compose --env-file .env down
 ```
 
-Sign in with Google, upload a PDF, run the check, read the generated Markdown
-report, and download `report.md`. The report panel renders Markdown by default
-and includes a preview/source switcher for inspecting the raw Markdown that is
-saved in downloads. The dashboard localizes checker/API errors in Ukrainian and
-English, including upload parsing, queue, timeout, and missing report failures.
+Sign in with Google, upload a PDF, DOCX, DOC, or ODT manuscript, run the check,
+read the generated Markdown report, and download `report.md`. The report panel
+renders Markdown by default and includes a preview/source switcher for
+inspecting the raw Markdown that is saved in downloads. The dashboard localizes
+checker/API errors in Ukrainian and English, including upload parsing, queue,
+timeout, and missing report failures.
 It keeps the current fixed-shell layout while using internal scrolling for long
 reports and compact mobile viewports. The dashboard and `/api/check` require an
 authenticated Google session; `/api/health` stays public for Docker health
@@ -74,7 +76,17 @@ docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
   --output /work/report.md
 ```
 
-Check all PDFs in a directory:
+DOCX, DOC, and ODT inputs are accepted the same way and converted before the PDF
+checker runs:
+
+```bash
+docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/work" ceur-pdf-check \
+  ceur-pdf-check /work/Malakhov_et_al_UkrPROG_2026_id_22_revised.docx \
+  --output /work/report.md
+```
+
+Check all supported manuscripts in a directory:
 
 ```bash
 docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
@@ -93,11 +105,11 @@ docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
 ```
 
 Reports also include a reference check implemented by `ceur-reference-check`.
-The helper extracts each PDF's rendered text with Poppler and validates that the
-References section follows CEURART-style output: bracketed numbered entries,
-sequential labels, publication years, and rendered DOI/URL prefixes such as
-`doi:` and `URL:`. Reference errors are included in `## Reference Check` and fail
-the overall report status.
+The helper extracts each checked PDF's rendered text with Poppler and validates
+that the References section follows CEURART-style output: bracketed numbered
+entries, sequential labels, publication years, and rendered DOI/URL prefixes
+such as `doi:` and `URL:`. Reference errors are included in
+`## Reference Check` and fail the overall report status.
 
 ## Parallel Requests
 
@@ -125,6 +137,7 @@ Run checks:
 
 ```bash
 bash -n bin/ceur-pdf-check
+python3 -m py_compile bin/ceur-reference-check
 AUTH_SECRET=dev-only-auth-secret-change-me-minimum-32-chars \
 AUTH_GOOGLE_ID=test-client-id \
 AUTH_GOOGLE_SECRET=test-client-secret \
@@ -160,8 +173,8 @@ it only for local or CI verification by setting `AUTH_TEST_MODE=true` and
 `AUTH_TEST_LOGIN_TOKEN` on the app container before running Playwright. The
 web tests cover authentication, localized server-side error handling, fixed-shell
 layout, compact viewport reachability, rendered Markdown reports, source-mode
-Markdown, internal report scrolling, stale response handling, and real PDF
-checks.
+Markdown, internal report scrolling, stale response handling, supported
+manuscript selection, converted-manuscript regressions, and real PDF checks.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.
@@ -173,15 +186,17 @@ The image downloads the CEUR scripts during build:
 - `https://ceur-ws.org/ceurtools/check-pdf-errors`
 - `https://ceur-ws.org/ceurtools/check-libbyhead.py`
 
-The image also installs the project-local `ceur-reference-check` helper, which
-uses `pdftotext` from Poppler to validate rendered CEURART-style references.
+The image also installs LibreOffice Writer for DOCX, DOC, and ODT conversion,
+and the project-local `ceur-reference-check` helper, which uses `pdftotext`
+from Poppler to validate rendered CEURART-style references.
 
 ## Exit Status
 
-The CLI exits with status `0` when the CEUR checker completes, no likely
-finding lines are detected, and the reference check passes. It exits nonzero
-when the checker fails, when the output contains likely errors, warnings, or
-CEUR remediation lines, or when reference-format errors are found.
+The CLI exits with status `0` when manuscript conversion succeeds, the CEUR
+checker completes, no likely finding lines are detected, and the reference check
+passes. It exits nonzero when conversion fails, when the checker fails, when the
+output contains likely errors, warnings, or CEUR remediation lines, or when
+reference-format errors are found.
 
 The web UI treats nonzero checker exits as completed validations when a Markdown
 report is produced, because CEUR findings are the expected output for invalid

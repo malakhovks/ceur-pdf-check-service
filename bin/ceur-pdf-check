@@ -6,7 +6,7 @@ usage() {
 Usage:
   ceur-pdf-check INPUT [--output REPORT.md] [--tests TESTS]
 
-INPUT may be a single PDF file or a directory containing PDF files.
+INPUT may be a single PDF, DOCX, DOC, or ODT manuscript file or a directory containing supported manuscript files.
 
 Options:
   -o, --output REPORT.md  Markdown report path. Defaults to ./ceur-pdf-check-report.md.
@@ -15,6 +15,7 @@ Options:
 
 Examples:
   ceur-pdf-check paper.pdf --output report.md
+  ceur-pdf-check paper.docx --output report.md
   ceur-pdf-check /work/papers --tests "readable copyright genai"
 EOF
 }
@@ -23,13 +24,124 @@ error() {
   echo "ceur-pdf-check: $*" >&2
 }
 
-copy_input_file() {
+is_pdf_file() {
   local source_path="$1"
+  [[ "${source_path,,}" == *.pdf ]]
+}
 
-  cp "$source_path" "$WORKDIR/" || {
+is_convertible_file() {
+  local source_path="$1"
+  case "${source_path,,}" in
+    *.docx|*.doc|*.odt) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_supported_manuscript() {
+  local source_path="$1"
+  is_pdf_file "$source_path" || is_convertible_file "$source_path"
+}
+
+copy_to_workdir() {
+  local source_path="$1"
+  local target_name="$2"
+
+  cp "$source_path" "$WORKDIR/$target_name" || {
     error "cannot copy input file: $source_path"
     exit 2
   }
+}
+
+unique_pdf_name() {
+  local candidate="$1"
+  local stem="${candidate%.pdf}"
+  local counter=2
+
+  if [[ ! -e "$WORKDIR/$candidate" ]]; then
+    echo "$candidate"
+    return
+  fi
+
+  while [[ -e "$WORKDIR/${stem}_${counter}.pdf" ]]; do
+    counter=$((counter + 1))
+  done
+
+  echo "${stem}_${counter}.pdf"
+}
+
+record_input_file() {
+  local source_path="$1"
+  local source_name
+  source_name="$(basename "$source_path")"
+
+  printf '%s\n' "$source_name" >> "$MANUSCRIPT_LIST"
+}
+
+copy_pdf_input() {
+  local source_path="$1"
+  local source_name
+  local target_name
+  source_name="$(basename "$source_path")"
+  target_name="$(unique_pdf_name "$source_name")"
+
+  copy_to_workdir "$source_path" "$target_name"
+  record_input_file "$source_path"
+}
+
+convert_document_input() {
+  local source_path="$1"
+  local source_name
+  local source_stem
+  local conversion_dir
+  local expected_pdf
+  local target_name
+  local convert_log="$CONVERSION_ROOT/libreoffice-conversion.log"
+
+  if ! command -v libreoffice >/dev/null 2>&1; then
+    error "libreoffice is not available on PATH for manuscript conversion"
+    exit 2
+  fi
+
+  source_name="$(basename "$source_path")"
+  source_stem="${source_name%.*}"
+  conversion_dir="$(mktemp -d "$CONVERSION_ROOT/convert.XXXXXX")" || {
+    error "cannot create conversion directory"
+    exit 2
+  }
+  expected_pdf="$conversion_dir/$source_stem.pdf"
+
+  if ! libreoffice --headless "-env:UserInstallation=file://$CONVERSION_ROOT/libreoffice-profile" --convert-to pdf --outdir "$conversion_dir" "$source_path" >> "$convert_log" 2>&1; then
+    error "cannot convert manuscript to PDF: $source_path"
+    if [[ -s "$convert_log" ]]; then
+      tail -n 20 "$convert_log" >&2 || true
+    fi
+    exit 2
+  fi
+
+  if [[ ! -s "$expected_pdf" ]]; then
+    error "manuscript conversion did not produce a PDF: $source_path"
+    if [[ -s "$convert_log" ]]; then
+      tail -n 20 "$convert_log" >&2 || true
+    fi
+    exit 2
+  fi
+
+  target_name="$(unique_pdf_name "$(basename "$expected_pdf")")"
+  copy_to_workdir "$expected_pdf" "$target_name"
+  record_input_file "$source_path"
+}
+
+process_input_file() {
+  local source_path="$1"
+
+  if is_pdf_file "$source_path"; then
+    copy_pdf_input "$source_path"
+  elif is_convertible_file "$source_path"; then
+    convert_document_input "$source_path"
+  else
+    error "unsupported manuscript format: $source_path"
+    exit 2
+  fi
 }
 
 INPUT=""
@@ -89,7 +201,7 @@ if [[ $# -gt 0 ]]; then
 fi
 
 if [[ -z "$INPUT" ]]; then
-  error "missing input PDF file or directory"
+  error "missing manuscript file or directory"
   usage >&2
   exit 2
 fi
@@ -130,38 +242,51 @@ WORKDIR="$(mktemp -d)" || {
   error "cannot create temporary work directory"
   exit 2
 }
+CONVERSION_ROOT="$(mktemp -d)" || {
+  rm -rf "$WORKDIR"
+  error "cannot create temporary conversion directory"
+  exit 2
+}
 RAW_LOG="$WORKDIR/check-pdf-errors.raw.log"
 CLEAN_LOG="$WORKDIR/check-pdf-errors.clean.log"
 FINDINGS="$WORKDIR/findings.log"
 REFERENCE_REPORT="$WORKDIR/reference-check.md"
 REFERENCE_ERRORS="$WORKDIR/reference-errors.log"
 INPUT_LIST="$WORKDIR/input-files.log"
-trap 'rm -rf "$WORKDIR"' EXIT
+MANUSCRIPT_LIST="$WORKDIR/input-manuscripts.log"
+trap 'rm -rf "$WORKDIR" "$CONVERSION_ROOT"' EXIT
+: > "$MANUSCRIPT_LIST"
 
 if [[ -f "$INPUT_PATH" ]]; then
-  if [[ "${INPUT_PATH,,}" != *.pdf ]]; then
-    error "single-file input must be a PDF: $INPUT_PATH"
+  if ! is_supported_manuscript "$INPUT_PATH"; then
+    error "single-file input must be a PDF, DOCX, DOC, or ODT manuscript: $INPUT_PATH"
     exit 2
   fi
-  copy_input_file "$INPUT_PATH"
+  process_input_file "$INPUT_PATH"
 elif [[ -d "$INPUT_PATH" ]]; then
-  while IFS= read -r -d '' pdf; do
-    copy_input_file "$pdf"
-  done < <(find "$INPUT_PATH" -maxdepth 1 -type f -iname '*.pdf' -print0 | sort -z)
+  while IFS= read -r -d '' manuscript; do
+    process_input_file "$manuscript"
+  done < <(find "$INPUT_PATH" -maxdepth 1 -type f \( -iname '*.pdf' -o -iname '*.docx' -o -iname '*.doc' -o -iname '*.odt' \) -print0 | sort -z)
   for companion in index.html watermark-log.txt; do
     if [[ -f "$INPUT_PATH/$companion" ]]; then
-      copy_input_file "$INPUT_PATH/$companion"
+      copy_to_workdir "$INPUT_PATH/$companion" "$companion"
     fi
   done
 else
-  error "input must be a PDF file or directory: $INPUT_PATH"
+  error "input must be a supported manuscript file or directory: $INPUT_PATH"
+  exit 2
+fi
+
+MANUSCRIPT_COUNT="$(wc -l < "$MANUSCRIPT_LIST" | tr -d ' ')"
+if [[ "$MANUSCRIPT_COUNT" -eq 0 ]]; then
+  error "no supported manuscript files found in input: $INPUT_PATH"
   exit 2
 fi
 
 find "$WORKDIR" -maxdepth 1 -type f -iname '*.pdf' -printf '%f\n' | sort > "$INPUT_LIST"
 PDF_COUNT="$(wc -l < "$INPUT_LIST" | tr -d ' ')"
 if [[ "$PDF_COUNT" -eq 0 ]]; then
-  error "no PDF files found in input: $INPUT_PATH"
+  error "no PDFs were available for checking after manuscript conversion: $INPUT_PATH"
   exit 2
 fi
 
@@ -206,12 +331,19 @@ if ! {
   echo "| Status | $STATUS |"
   echo "| Generated | $(date -u '+%Y-%m-%dT%H:%M:%SZ') |"
   echo "| Input | $INPUT_PATH |"
+  echo "| Manuscript count | $MANUSCRIPT_COUNT |"
   echo "| PDF count | $PDF_COUNT |"
   echo "| Tests | $TESTS |"
   echo "| Checker exit code | $CHECK_EXIT |"
   echo "| Finding lines | $FINDING_COUNT |"
   echo "| Reference status | $REFERENCE_STATUS |"
   echo "| Reference errors | $REFERENCE_ERROR_COUNT |"
+  echo
+  echo "## Input Manuscripts"
+  echo
+  while IFS= read -r manuscript_name; do
+    echo "- $manuscript_name"
+  done < "$MANUSCRIPT_LIST"
   echo
   echo "## Checked PDFs"
   echo

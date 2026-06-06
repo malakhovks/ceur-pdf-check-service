@@ -5,12 +5,14 @@
 This repository packages a Dockerized CLI and authenticated web UI for the
 official CEUR-WS `check-pdf-errors` checker.
 
-- `Dockerfile` builds the Debian/Node runtime, installs PDF tooling, downloads
-  CEUR helper scripts, builds the Next.js app, and serves it on port `3000`.
+- `Dockerfile` builds the Debian/Node runtime, installs PDF tooling and
+  LibreOffice Writer, downloads CEUR helper scripts, builds the Next.js app, and
+  serves it on port `3000`.
 - `docker-compose.yml` builds/runs the web service, exposes `${APP_PORT:-3000}`,
   and passes Auth.js, Google OAuth, and checker queue env.
-- `bin/ceur-pdf-check` is the Bash CLI. It validates arguments, copies input PDFs
-  to a temporary work directory, runs CEUR checks and the reference checker, and
+- `bin/ceur-pdf-check` is the Bash CLI. It validates arguments, accepts PDF,
+  DOCX, DOC, and ODT manuscripts, converts office formats with LibreOffice in a
+  separate scratch directory, runs CEUR checks and the reference checker, and
   writes a Markdown report.
 - `bin/ceur-reference-check` is the Python helper that extracts rendered PDF text
   with Poppler and validates CEURART-style numbered reference sections.
@@ -24,8 +26,9 @@ official CEUR-WS `check-pdf-errors` checker.
 - `README.md`, `CHANGELOG.md`, and `AGENTS.md` document usage and project state.
 - `report.md` is a generated sample output. Treat new reports as artifacts unless
   they are intentionally used as fixtures.
-- `.dockerignore` excludes PDFs, logs, generated reports, Playwright artifacts,
-  `.next`, and dependency directories from the Docker build context.
+- `.dockerignore` excludes PDFs, DOCX, DOC, ODT, logs, generated reports,
+  Playwright artifacts, `.next`, and dependency directories from the Docker
+  build context.
 
 ## Build, Test, and Development Commands
 
@@ -49,7 +52,8 @@ docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
 ```
 
 Runs the sample PDF check, including the rendered reference check, and writes a
-host-owned Markdown report.
+host-owned Markdown report. DOCX, DOC, and ODT samples should be checked the same
+way when conversion behavior changes.
 
 ```bash
 docker run --rm --network host \
@@ -75,8 +79,10 @@ Use Bash for the CLI and keep existing idioms such as `[[ ... ]]`, process
 substitution, and lowercase parameter expansion. Indent Bash with two spaces.
 Quote variable expansions unless word splitting is required. Keep constants and
 derived paths in uppercase variables (`WORKDIR`, `RAW_LOG`); use lowercase
-function names such as `usage` and `error`. Keep reference parsing in the Python
-helper rather than expanding complex text parsing in Bash.
+function names such as `usage` and `error`. Keep converted-office scratch output
+outside the checker work directory so generated PDFs are not detected as
+duplicates. Keep reference parsing in the Python helper rather than expanding
+complex text parsing in Bash.
 
 Return `2` for usage or input validation errors. Preserve nonzero exits for
 findings or checker failures.
@@ -93,10 +99,11 @@ failures remain localized.
 
 For `bin/ceur-pdf-check` or `bin/ceur-reference-check` changes, run `bash -n`,
 `python3 -m py_compile bin/ceur-reference-check`, rebuild the image, and perform
-at least one container run against a single PDF. For reference-check changes,
-verify that reports include `## Reference Check`, `Reference status`, and
-`Reference errors`. For directory handling changes, test a mounted directory
-with multiple PDFs and optional `index.html` or `watermark-log.txt` companions.
+container runs against the sample PDF plus DOCX/ODT manuscripts when conversion
+paths are touched. For reference-check changes, verify that reports include
+`## Reference Check`, `Reference status`, and `Reference errors`. For directory
+handling changes, test a mounted directory with multiple supported manuscripts
+and optional `index.html` or `watermark-log.txt` companions.
 
 For web or API changes, rebuild with Docker Compose and run Playwright in
 `mcr.microsoft.com/playwright:v1.60.0-noble`. Keep `/api/health` public and
@@ -118,10 +125,11 @@ unless they are intentional fixtures.
 
 ## Security & Configuration Tips
 
-The image downloads executable CEUR scripts during build and relies on Poppler's
-`pdftotext` for rendered reference extraction. Review URL, checksum, or PDF
-text-extraction changes carefully. Do not bake private manuscripts into the
-image; mount inputs at runtime with `-v "$PWD:/work"`.
+The image downloads executable CEUR scripts during build, relies on LibreOffice
+for office-manuscript conversion, and uses Poppler's `pdftotext` for rendered
+reference extraction. Review URL, checksum, conversion, or PDF text-extraction
+changes carefully. Do not bake private manuscripts into the image; mount inputs
+at runtime with `-v "$PWD:/work"`.
 
 Google Sign-In requires runtime-only secrets: `AUTH_SECRET`, `AUTH_GOOGLE_ID`,
 and `AUTH_GOOGLE_SECRET`. Set `AUTH_URL` to the browser-visible origin, for

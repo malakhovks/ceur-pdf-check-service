@@ -21,6 +21,17 @@ const MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + 1024 * 1024;
 const CHECKER_TIMEOUT_MS = 110_000;
 const CHECKER_KILL_GRACE_MS = 5_000;
 const MAX_PROCESS_OUTPUT_CHARS = 1_000_000;
+const SUPPORTED_FORMAT_LABEL = "PDF, DOCX, DOC, or ODT";
+
+const SUPPORTED_FORMATS = [
+  { extension: ".pdf", mimeTypes: ["application/pdf"] },
+  { extension: ".docx", mimeTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] },
+  { extension: ".doc", mimeTypes: ["application/msword"] },
+  { extension: ".odt", mimeTypes: ["application/vnd.oasis.opendocument.text"] },
+] as const;
+
+type SupportedFormat = (typeof SUPPORTED_FORMATS)[number];
+type SupportedExtension = SupportedFormat["extension"];
 
 type CheckResult = {
   exitCode: number | null;
@@ -29,16 +40,72 @@ type CheckResult = {
   stderr: string;
 };
 
-function sanitizeFilename(name: string) {
-  const basename = name.split(/[/\\]/).pop() || "manuscript.pdf";
+const formatByExtension = new Map<string, SupportedFormat>(SUPPORTED_FORMATS.map((format) => [format.extension, format]));
+const formatByMimeType = new Map<string, SupportedFormat>(SUPPORTED_FORMATS.flatMap((format) => format.mimeTypes.map((mimeType) => [mimeType, format] as const)));
+
+function supportedExtensionFromName(name: string): SupportedExtension | null {
+  const lowerName = name.toLowerCase();
+  return SUPPORTED_FORMATS.find((format) => lowerName.endsWith(format.extension))?.extension ?? null;
+}
+
+function formatForUpload(file: File): SupportedFormat | null {
+  const extension = supportedExtensionFromName(file.name);
+  if (extension) {
+    return formatByExtension.get(extension) ?? null;
+  }
+
+  const mimeType = file.type.toLowerCase();
+  return formatByMimeType.get(mimeType) ?? null;
+}
+
+function sanitizeFilename(name: string, fallbackExtension: SupportedExtension) {
+  const basename = name.split(/[/\\]/).pop() || `manuscript${fallbackExtension}`;
   const normalized = basename.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const withoutExtension = normalized.toLowerCase().endsWith(".pdf") ? normalized.slice(0, -4) : normalized;
+  const extension = supportedExtensionFromName(normalized) ?? fallbackExtension;
+  const withoutExtension = normalized.toLowerCase().endsWith(extension) ? normalized.slice(0, -extension.length) : normalized;
   const stem = withoutExtension.replace(/^\.+$/, "") || "manuscript";
-  return `${stem.slice(0, 120)}.pdf`;
+  return `${stem.slice(0, 120)}${extension}`;
+}
+
+function startsWithBytes(bytes: Buffer, signature: readonly number[]) {
+  if (bytes.length < signature.length) {
+    return false;
+  }
+
+  return signature.every((value, index) => bytes[index] === value);
 }
 
 function looksLikePdf(bytes: Buffer) {
   return bytes.subarray(0, 5).toString("latin1") === "%PDF-";
+}
+
+function looksLikeZip(bytes: Buffer) {
+  return startsWithBytes(bytes, [0x50, 0x4b, 0x03, 0x04])
+    || startsWithBytes(bytes, [0x50, 0x4b, 0x05, 0x06])
+    || startsWithBytes(bytes, [0x50, 0x4b, 0x07, 0x08]);
+}
+
+function looksLikeDoc(bytes: Buffer) {
+  return startsWithBytes(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+}
+
+function containsLatin1(bytes: Buffer, value: string) {
+  return bytes.includes(Buffer.from(value, "latin1"));
+}
+
+function looksLikeSupportedManuscript(bytes: Buffer, format: SupportedFormat) {
+  switch (format.extension) {
+    case ".pdf":
+      return looksLikePdf(bytes);
+    case ".docx":
+      return looksLikeZip(bytes) && containsLatin1(bytes, "word/");
+    case ".doc":
+      return looksLikeDoc(bytes);
+    case ".odt":
+      return looksLikeZip(bytes) && containsLatin1(bytes, "application/vnd.oasis.opendocument.text");
+    default:
+      return false;
+  }
 }
 
 function appendProcessOutput(current: string, chunk: Buffer) {
@@ -203,7 +270,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (contentLengthTooLarge(request)) {
-    return NextResponse.json({ requestId, status: "error", error: "PDF uploads are limited to 30 MB." }, { status: 413 });
+    return NextResponse.json({ requestId, status: "error", error: "Manuscript uploads are limited to 30 MB." }, { status: 413 });
   }
 
   if (isCheckerQueueFull()) {
@@ -221,23 +288,25 @@ export async function POST(request: NextRequest) {
   const file = formData.get("file");
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ requestId, status: "error", error: "Upload a PDF file to run the check." }, { status: 400 });
+    return NextResponse.json({ requestId, status: "error", error: `Upload a ${SUPPORTED_FORMAT_LABEL} file to run the check.` }, { status: 400 });
   }
 
-  if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
-    return NextResponse.json({ requestId, status: "error", error: "Only PDF files can be checked." }, { status: 400 });
+  const format = formatForUpload(file);
+
+  if (!format) {
+    return NextResponse.json({ requestId, status: "error", error: `Only ${SUPPORTED_FORMAT_LABEL} files can be checked.` }, { status: 400 });
   }
 
   if (file.size <= 0) {
-    return NextResponse.json({ requestId, status: "error", error: "The uploaded PDF is empty." }, { status: 400 });
+    return NextResponse.json({ requestId, status: "error", error: "The uploaded manuscript is empty." }, { status: 400 });
   }
 
   if (file.size > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ requestId, status: "error", error: "PDF uploads are limited to 30 MB." }, { status: 413 });
+    return NextResponse.json({ requestId, status: "error", error: "Manuscript uploads are limited to 30 MB." }, { status: 413 });
   }
 
   const workDir = path.join(tmpdir(), `ceur-web-${requestId}`);
-  const filename = sanitizeFilename(file.name || "manuscript.pdf");
+  const filename = sanitizeFilename(file.name || `manuscript${format.extension}`, format.extension);
   const inputPath = path.join(workDir, filename);
   const outputPath = path.join(workDir, "report.md");
 
@@ -245,8 +314,8 @@ export async function POST(request: NextRequest) {
     await mkdir(workDir, { recursive: true });
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    if (!looksLikePdf(bytes)) {
-      return NextResponse.json({ requestId, status: "error", error: "The uploaded file does not look like a PDF." }, { status: 400 });
+    if (!looksLikeSupportedManuscript(bytes, format)) {
+      return NextResponse.json({ requestId, status: "error", error: "The uploaded file does not look like a supported manuscript." }, { status: 400 });
     }
 
     await writeFile(inputPath, bytes);

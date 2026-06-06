@@ -3,6 +3,8 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 
 const samplePdfPath = path.resolve("Malakhov_et_al_UkrPROG_2026_id_22_revised.pdf");
+const sampleDocxPath = path.resolve("Malakhov_et_al_UkrPROG_2026_id_22_revised.docx");
+const sampleOdtPath = path.resolve("CEUR-Template-1col.odt");
 
 function delay(ms: number) {
   return new Promise<void>((resolve) => {
@@ -27,10 +29,15 @@ function sampleReport(extraRaw = "WARNING: raw English output") {
     "| Status | fail |",
     "| Generated | 2026-06-05T00:00:00Z |",
     "| Input | /tmp/paper.pdf |",
+    "| Manuscript count | 1 |",
     "| PDF count | 1 |",
     "| Tests | all |",
     "| Checker exit code | 1 |",
     "| Finding lines | 2 |",
+    "",
+    "## Input Manuscripts",
+    "",
+    "- paper.pdf",
     "",
     "## Checked PDFs",
     "",
@@ -255,7 +262,7 @@ test("keeps dashboard controls reachable on short mobile viewports", async ({ pa
   await expectNoDocumentScroll(page);
 });
 
-test("rejects non-PDF selections with localized errors", async ({ page }) => {
+test("rejects unsupported manuscript selections with localized errors", async ({ page }) => {
   await page.goto("/");
 
   await page.locator('input[type="file"]').setInputFiles({
@@ -264,12 +271,25 @@ test("rejects non-PDF selections with localized errors", async ({ page }) => {
     buffer: Buffer.from("not a pdf"),
   });
 
-  await expect(page.getByRole("alert").filter({ hasText: "Можна перевіряти лише PDF-файли." })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "Можна перевіряти лише файли PDF, DOCX, DOC або ODT." })).toBeVisible();
   await switchToEnglish(page);
-  await expect(page.getByRole("alert").filter({ hasText: "Only PDF files can be checked." })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "Only PDF, DOCX, DOC, or ODT files can be checked." })).toBeVisible();
   await expect(page.getByText("No file selected")).toBeVisible();
   await expect(page.getByRole("button", { name: "Run check" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Download report.md" })).toBeDisabled();
+});
+
+test("accepts DOCX and ODT manuscript selections", async ({ page }) => {
+  await page.goto("/");
+
+  await page.locator('input[type="file"]').setInputFiles(sampleDocxPath);
+  await expect(page.getByText("Malakhov_et_al_UkrPROG_2026_id_22_revised.docx")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Запустити перевірку" })).toBeEnabled();
+
+  await page.locator('input[type="file"]').setInputFiles(sampleOdtPath);
+  await expect(page.getByText("CEUR-Template-1col.odt")).toBeVisible();
+  await switchToEnglish(page);
+  await expect(page.getByRole("button", { name: "Run check" })).toBeEnabled();
 });
 
 test("prevents duplicate submissions while a check is active", async ({ page }) => {
@@ -438,7 +458,7 @@ test("uses internal report scrolling for long output", async ({ page }) => {
   await expectNoDocumentScroll(page);
 });
 
-test("clears stale results when selecting another PDF and surfaces API errors", async ({ page }) => {
+test("clears stale results when selecting another manuscript and surfaces API errors", async ({ page }) => {
   let requestCount = 0;
 
   await page.route("/api/check", async (route) => {
@@ -496,7 +516,7 @@ test("clears stale results when selecting another PDF and surfaces API errors", 
   await expect(page.getByText("Невідомо").first()).toBeVisible();
 });
 
-test("ignores stale check responses after selecting another PDF", async ({ page }) => {
+test("ignores stale check responses after selecting another manuscript", async ({ page }) => {
   let finishFirstRequest: (() => void) | undefined;
 
   await page.route("/api/check", async (route) => {

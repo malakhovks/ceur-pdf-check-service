@@ -6,6 +6,9 @@ playwright-report
 test-results
 .env
 *.pdf
+*.odt
+*.docx
+*.doc
 *.log
 ceur-pdf-check-report.md
 report.md

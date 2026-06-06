@@ -86,7 +86,7 @@ type Translation = {
     title: string;
     badge: string;
     findings: string;
-    singlePdf: string;
+    singleManuscript: string;
     rawOutput: string;
   };
   status: Record<string, string>;
@@ -104,8 +104,8 @@ const translations: Record<Language, Translation> = {
     },
     upload: {
       eyebrow: "Завантаження рукопису",
-      title: "Виберіть або перетягніть PDF",
-      support: "Лише PDF",
+      title: "Виберіть або перетягніть рукопис",
+      support: "PDF, DOCX, DOC, ODT",
       noFileSelected: "Файл не вибрано",
     },
     stats: {
@@ -138,7 +138,7 @@ const translations: Record<Language, Translation> = {
       title: "Примітки до виводу",
       badge: "Markdown",
       findings: "Знахідки CEUR можуть встановити статус помилки навіть тоді, коли процес перевірки завершується штатно.",
-      singlePdf: "Перевірка одного PDF не містить index.html, тому перевірки назви можуть повідомити про відсутній супровідний файл.",
+      singleManuscript: "Перевірка одного рукопису не містить index.html, тому перевірки назви можуть повідомити про відсутній супровідний файл.",
       rawOutput: "Сирий вивід CEUR зберігається англійською мовою для аудиту.",
     },
     status: {
@@ -151,7 +151,7 @@ const translations: Record<Language, Translation> = {
       checking: "Перевірка",
     },
     errors: {
-      onlyPdf: "Можна перевіряти лише PDF-файли.",
+      unsupportedFormat: "Можна перевіряти лише файли PDF, DOCX, DOC або ODT.",
       unreadable: "API перевірки повернув нечитабельну відповідь.",
       apiFailed: "API перевірки не спрацював.",
       checkerFailed: "Перевірка не спрацювала.",
@@ -160,13 +160,13 @@ const translations: Record<Language, Translation> = {
       noReport: "Перевірник завершився без створення Markdown-звіту.",
       authRequired: "Потрібна автентифікація.",
       uploadParse: "Не вдалося прочитати завантаження.",
-      missingUpload: "Завантажте PDF-файл, щоб запустити перевірку.",
+      missingUpload: "Завантажте файл PDF, DOCX, DOC або ODT, щоб запустити перевірку.",
       executableMissing: "Виконуваний файл ceur-pdf-check недоступний у PATH.",
       timeout: "Перевірник перевищив ліміт часу.",
       unexpected: "Сталася неочікувана помилка перевірника.",
-      uploadLimit: "Завантаження PDF обмежене 30 МБ.",
-      emptyUpload: "Завантажений PDF порожній.",
-      fakePdf: "Завантажений файл не схожий на PDF.",
+      uploadLimit: "Завантаження рукопису обмежене 30 МБ.",
+      emptyUpload: "Завантажений рукопис порожній.",
+      fakePdf: "Завантажений файл не схожий на підтримуваний рукопис.",
     },
   },
   en: {
@@ -179,8 +179,8 @@ const translations: Record<Language, Translation> = {
     },
     upload: {
       eyebrow: "Upload manuscript",
-      title: "Choose or drop a PDF",
-      support: "PDF only",
+      title: "Choose or drop a manuscript",
+      support: "PDF, DOCX, DOC, ODT",
       noFileSelected: "No file selected",
     },
     stats: {
@@ -213,7 +213,7 @@ const translations: Record<Language, Translation> = {
       title: "Output notes",
       badge: "Markdown",
       findings: "CEUR findings can fail the status even when the checker process exits normally.",
-      singlePdf: "Single-PDF checks do not include index.html, so title checks may report that companion file as missing.",
+      singleManuscript: "Single-manuscript checks do not include index.html, so title checks may report that companion file as missing.",
       rawOutput: "Raw CEUR output is preserved in English for auditability.",
     },
     status: {
@@ -226,7 +226,7 @@ const translations: Record<Language, Translation> = {
       checking: "Checking",
     },
     errors: {
-      onlyPdf: "Only PDF files can be checked.",
+      unsupportedFormat: "Only PDF, DOCX, DOC, or ODT files can be checked.",
       unreadable: "The checker API returned an unreadable response.",
       apiFailed: "The checker API failed.",
       checkerFailed: "The checker failed.",
@@ -235,19 +235,19 @@ const translations: Record<Language, Translation> = {
       noReport: "The checker finished without producing a Markdown report.",
       authRequired: "Authentication required.",
       uploadParse: "The upload could not be parsed.",
-      missingUpload: "Upload a PDF file to run the check.",
+      missingUpload: "Upload a PDF, DOCX, DOC, or ODT file to run the check.",
       executableMissing: "The ceur-pdf-check executable is not available on PATH.",
       timeout: "The checker exceeded the time limit.",
       unexpected: "Unexpected checker failure.",
-      uploadLimit: "PDF uploads are limited to 30 MB.",
-      emptyUpload: "The uploaded PDF is empty.",
-      fakePdf: "The uploaded file does not look like a PDF.",
+      uploadLimit: "Manuscript uploads are limited to 30 MB.",
+      emptyUpload: "The uploaded manuscript is empty.",
+      fakePdf: "The uploaded file does not look like a supported manuscript.",
     },
   },
 };
 
 const errorTranslations: Record<string, keyof Translation["errors"]> = {
-  "Only PDF files can be checked.": "onlyPdf",
+  "Only PDF, DOCX, DOC, or ODT files can be checked.": "unsupportedFormat",
   "The checker API returned an unreadable response.": "unreadable",
   "The checker API failed.": "apiFailed",
   "The checker failed.": "checkerFailed",
@@ -256,17 +256,30 @@ const errorTranslations: Record<string, keyof Translation["errors"]> = {
   "The checker finished without producing a Markdown report.": "noReport",
   "Authentication required.": "authRequired",
   "The upload could not be parsed.": "uploadParse",
-  "Upload a PDF file to run the check.": "missingUpload",
+  "Upload a PDF, DOCX, DOC, or ODT file to run the check.": "missingUpload",
   "The ceur-pdf-check executable is not available on PATH.": "executableMissing",
   "The checker timed out after 110 seconds.": "timeout",
   "Unexpected checker failure.": "unexpected",
-  "PDF uploads are limited to 30 MB.": "uploadLimit",
-  "The uploaded PDF is empty.": "emptyUpload",
-  "The uploaded file does not look like a PDF.": "fakePdf",
+  "Manuscript uploads are limited to 30 MB.": "uploadLimit",
+  "The uploaded manuscript is empty.": "emptyUpload",
+  "The uploaded file does not look like a supported manuscript.": "fakePdf",
 };
 
 const githubRepoUrl = "https://github.com/malakhovks/ceur-pdf-check-service";
 const developerCreditUrl = "https://linktr.ee/malakhovks";
+const supportedManuscriptExtensions = [".pdf", ".docx", ".doc", ".odt"];
+const supportedManuscriptMimeTypes = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "application/vnd.oasis.opendocument.text",
+]);
+
+function isSupportedManuscript(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return supportedManuscriptExtensions.some((extension) => lowerName.endsWith(extension)) || supportedManuscriptMimeTypes.has(file.type.toLowerCase());
+}
+
 
 function classNames(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -352,6 +365,7 @@ function translateReportMetadata(section: string) {
     .replace(/^\| Status \| error \|$/m, "| Статус | Помилка |")
     .replace(/^\| Generated \|/gm, "| Створено |")
     .replace(/^\| Input \|/gm, "| Вхід |")
+    .replace(/^\| Manuscript count \|/gm, "| Кількість рукописів |")
     .replace(/^\| PDF count \|/gm, "| Кількість PDF |")
     .replace(/^\| Tests \|/gm, "| Тести |")
     .replace(/^\| Checker exit code \|/gm, "| Код виходу перевірника |")
@@ -359,6 +373,7 @@ function translateReportMetadata(section: string) {
     .replace(/^\| Reference status \| pass \|$/m, "| Статус посилань | Пройдено |")
     .replace(/^\| Reference status \| fail \|$/m, "| Статус посилань | Знахідки |")
     .replace(/^\| Reference errors \|/gm, "| Помилки посилань |")
+    .replace(/^## Input Manuscripts$/m, "## Вхідні рукописи")
     .replace(/^## Checked PDFs$/m, "## Перевірені PDF")
     .replace(/^## Reference Check$/m, "## Перевірка посилань")
     .replace(/^## Findings$/m, "## Знахідки")
@@ -442,9 +457,9 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
       return;
     }
 
-    if (!candidate.name.toLowerCase().endsWith(".pdf") && candidate.type !== "application/pdf") {
+    if (!isSupportedManuscript(candidate)) {
       setFile(null);
-      setError("Only PDF files can be checked.");
+      setError("Only PDF, DOCX, DOC, or ODT files can be checked.");
       return;
     }
 
@@ -613,10 +628,10 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
           <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.42fr)_minmax(18rem,0.34fr)]">
             <div className="flex min-h-0">
               <input
-                id="pdf-upload"
+                id="manuscript-upload"
                 ref={inputRef}
                 type="file"
-                accept="application/pdf,.pdf"
+                accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,application/msword,.doc,application/vnd.oasis.opendocument.text,.odt"
                 className="sr-only"
                 onClick={(event) => {
                   event.currentTarget.value = "";
@@ -652,11 +667,11 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                     <UploadCloud className="h-5 w-5" />
                   </span>
                 </span>
-                <span className="mt-4 block min-w-0 text-sm text-slate-500">
-                  <span id="upload-support" className="mr-2 inline-flex rounded-full border border-white/70 bg-white/78 px-2 py-1 text-xs font-semibold uppercase text-slate-500">
+                <span className="mt-4 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500">
+                  <span id="upload-support" className="inline-flex rounded-full border border-white/70 bg-white/78 px-2 py-1 text-xs font-semibold uppercase text-slate-500">
                     {t.upload.support}
                   </span>
-                  <span id="selected-file" className="break-all" title={selectedName}>{selectedName}</span>
+                  <span id="selected-file" className="min-w-0 break-all" title={selectedName}>{selectedName}</span>
                 </span>
               </button>
             </div>
@@ -779,7 +794,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               </div>
               <div className="mt-3 min-h-0 space-y-3 overflow-auto text-sm text-slate-500">
                 <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-2">{t.notes.findings}</div>
-                <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-2">{t.notes.singlePdf}</div>
+                <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-2">{t.notes.singleManuscript}</div>
                 <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-2">{t.notes.rawOutput}</div>
               </div>
             </section>

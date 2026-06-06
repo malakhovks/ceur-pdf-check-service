@@ -16,7 +16,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "CEUR PDF Check",
-  description: "Upload a CEUR manuscript PDF and generate a Markdown validation report.",
+  description: "Upload a CEUR manuscript PDF, DOCX, DOC, or ODT and generate a Markdown validation report.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
