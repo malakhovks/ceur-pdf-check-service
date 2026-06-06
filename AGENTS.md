@@ -15,7 +15,8 @@ official CEUR-WS `check-pdf-errors` checker.
 - `bin/ceur-reference-check` is the Python helper that extracts rendered PDF text
   with Poppler and validates CEURART-style numbered reference sections.
 - `app/` contains the Next.js App Router UI, Auth.js routes, health/check API
-  routes, sign-in page, and protected dashboard.
+  routes, sign-in page, protected dashboard, and rendered/source Markdown report
+  panel.
 - `auth.ts` configures Auth.js Google Sign-In, JWT sessions, and disabled-by-
   default test authentication. `proxy.ts` protects the dashboard and `/api/check`.
 - `tests/` contains Playwright and queue tests. `playwright.config.ts` targets
@@ -82,9 +83,11 @@ findings or checker failures.
 
 Use TypeScript/React for the web UI. Keep Auth.js server-only code in server
 files (`auth.ts`, route handlers, server pages) and client-only browser behavior
-in `"use client"` components such as `app/checker-ui.tsx`. When backend error
-strings change, update the client `errorTranslations` map and Ukrainian/English
-copy together so server-origin failures remain localized.
+in `"use client"` components such as `app/checker-ui.tsx`. Render checker
+reports through the existing Markdown preview/source toggle; downloads should
+still save Markdown source. When backend error strings change, update the client
+`errorTranslations` map and Ukrainian/English copy together so server-origin
+failures remain localized.
 
 ## Testing Guidelines
 
@@ -99,8 +102,9 @@ For web or API changes, rebuild with Docker Compose and run Playwright in
 `mcr.microsoft.com/playwright:v1.60.0-noble`. Keep `/api/health` public and
 verify unauthenticated `/api/check` requests return `401`. For dashboard layout
 changes, preserve the no-document-scroll app shell and verify compact viewports
-use internal scrolling for controls and report content. For API error changes,
-verify localized server-side errors in both Ukrainian and English.
+use internal scrolling for controls and report content. For report rendering
+changes, verify both rendered Markdown preview and raw source mode. For API error
+changes, verify localized server-side errors in both Ukrainian and English.
 
 ## Commit & Pull Request Guidelines
 

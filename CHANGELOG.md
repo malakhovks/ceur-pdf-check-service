@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added rendered Markdown report preview in the web dashboard, backed by `react-markdown` and `remark-gfm`.
+- Added a report view switcher for rendered preview and raw Markdown source while keeping `report.md` downloads as Markdown.
+- Updated the Ukrainian dashboard subtitle to “Перевірка рукопису для CEUR-WS”.
+- Added Playwright coverage for rendered report headings/tables, source-mode Markdown syntax, and report view toggle state.
 - Improved dashboard error handling so server-side checker, upload parsing, queue wait, and timeout errors are localized in Ukrainian and English.
 - Aligned PDF validation error text between `/api/check` and the client-side upload flow.
 - Improved fixed-shell dashboard sizing with dynamic viewport height and internal panel scrolling for short mobile screens.

@@ -2,10 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
+import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   AlertTriangle,
   CheckCircle2,
+  Code2,
   Download,
+  Eye,
   ExternalLink,
   FileText,
   GitBranch,
@@ -18,6 +23,7 @@ import {
 } from "lucide-react";
 
 type Language = "uk" | "en";
+type ReportView = "preview" | "source";
 
 export type SignedInUser = {
   name?: string | null;
@@ -72,6 +78,9 @@ type Translation = {
     title: string;
     empty: string;
     ariaLabel: string;
+    viewMode: string;
+    preview: string;
+    source: string;
   };
   notes: {
     title: string;
@@ -89,7 +98,7 @@ const translations: Record<Language, Translation> = {
     locale: "uk",
     meta: {
       title: "CEUR PDF Check",
-      subtitle: "Генератор звіту перевірки рукопису",
+      subtitle: "Перевірка рукопису для CEUR-WS",
       github: "GitHub",
       language: "Мова інтерфейсу",
     },
@@ -121,6 +130,9 @@ const translations: Record<Language, Translation> = {
       title: "Markdown-вивід перевірки",
       empty: "Завантажте рукопис і запустіть перевірку CEUR, щоб прочитати Markdown-звіт тут.",
       ariaLabel: "Markdown-звіт перевірки",
+      viewMode: "Вигляд звіту",
+      preview: "Перегляд",
+      source: "Код",
     },
     notes: {
       title: "Примітки до виводу",
@@ -193,6 +205,9 @@ const translations: Record<Language, Translation> = {
       title: "Markdown validation output",
       empty: "Upload a manuscript and run the CEUR check to read the generated Markdown report here.",
       ariaLabel: "Markdown validation report",
+      viewMode: "Report view",
+      preview: "Preview",
+      source: "Source",
     },
     notes: {
       title: "Output notes",
@@ -256,6 +271,49 @@ const developerCreditUrl = "https://linktr.ee/malakhovks";
 function classNames(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
+
+const markdownComponents: Components = {
+  h1({ node, className, ...props }) {
+    return <h1 className={classNames("mb-3 text-xl font-semibold leading-tight text-slate-950", className)} {...props} />;
+  },
+  h2({ node, className, ...props }) {
+    return <h2 className={classNames("mb-2 mt-5 text-lg font-semibold leading-tight text-slate-900", className)} {...props} />;
+  },
+  h3({ node, className, ...props }) {
+    return <h3 className={classNames("mb-2 mt-4 text-base font-semibold leading-tight text-slate-900", className)} {...props} />;
+  },
+  p({ node, className, ...props }) {
+    return <p className={classNames("mb-3", className)} {...props} />;
+  },
+  ul({ node, className, ...props }) {
+    return <ul className={classNames("mb-4 list-disc space-y-1 pl-5", className)} {...props} />;
+  },
+  li({ node, className, ...props }) {
+    return <li className={classNames("pl-1", className)} {...props} />;
+  },
+  table({ node, className, ...props }) {
+    return (
+      <div className="mb-4 overflow-x-auto rounded-[18px] border border-slate-200 bg-white/72">
+        <table className={classNames("w-full min-w-[34rem] border-collapse text-left text-sm", className)} {...props} />
+      </div>
+    );
+  },
+  thead({ node, className, ...props }) {
+    return <thead className={classNames("bg-white/80 text-xs uppercase text-slate-500", className)} {...props} />;
+  },
+  th({ node, className, ...props }) {
+    return <th className={classNames("border-b border-slate-200 px-3 py-2 font-semibold", className)} {...props} />;
+  },
+  td({ node, className, ...props }) {
+    return <td className={classNames("border-b border-slate-100 px-3 py-2 align-top", className)} {...props} />;
+  },
+  pre({ node, className, ...props }) {
+    return <pre className={classNames("mb-4 overflow-x-auto rounded-[18px] bg-slate-950 p-3 text-xs leading-5 text-slate-100", className)} {...props} />;
+  },
+  code({ node, className, ...props }) {
+    return <code className={classNames("rounded bg-white/80 px-1 py-0.5 font-mono text-[0.85em] text-slate-900", className)} {...props} />;
+  },
+};
 
 function statusLabel(status: string | null, t: Translation) {
   if (!status) return t.status.waiting;
@@ -331,6 +389,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const [language, setLanguage] = useState<Language>("uk");
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState("");
+  const [reportView, setReportView] = useState<ReportView>("preview");
   const [status, setStatus] = useState<string | null>(null);
   const [findingCount, setFindingCount] = useState<number | null>(null);
   const [exitCode, setExitCode] = useState<number | null>(null);
@@ -660,21 +719,55 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 <p className="text-xs font-semibold uppercase text-slate-500">{t.report.eyebrow}</p>
                 <h2 className="mt-1 text-base font-semibold text-slate-900 sm:text-lg">{t.report.title}</h2>
               </div>
-              <button
-                type="button"
-                onClick={downloadReport}
-                disabled={!displayReport}
-                className={classNames(
-                  "inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
-                  displayReport ? "reference-dark" : "reference-disabled",
-                )}
-              >
-                <Download className="h-4 w-4" />
-                {t.actions.download}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex min-h-9 items-center gap-1 rounded-full border border-white/70 bg-white/70 p-1" role="group" aria-label={t.report.viewMode}>
+                  {([
+                    ["preview", t.report.preview, Eye],
+                    ["source", t.report.source, Code2],
+                  ] as const).map(([view, label, Icon]) => (
+                    <button
+                      key={view}
+                      type="button"
+                      aria-pressed={reportView === view}
+                      onClick={() => setReportView(view)}
+                      className={classNames(
+                        "inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
+                        reportView === view ? "reference-dark" : "text-slate-700 hover:bg-white/80",
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadReport}
+                  disabled={!displayReport}
+                  className={classNames(
+                    "inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
+                    displayReport ? "reference-dark" : "reference-disabled",
+                  )}
+                >
+                  <Download className="h-4 w-4" />
+                  {t.actions.download}
+                </button>
+              </div>
             </div>
             <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-[24px] border border-white/70 bg-[#faf6f0]">
-              <pre className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-slate-700" aria-label={t.report.ariaLabel}>{displayReport || t.report.empty}</pre>
+              <div className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-slate-700" aria-label={t.report.ariaLabel}>
+                {displayReport ? (
+                  reportView === "preview" ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                      {displayReport}
+                    </ReactMarkdown>
+                  ) : (
+                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-slate-700">{displayReport}</pre>
+                  )
+                ) : (
+                  <p className="m-0 text-slate-500">{t.report.empty}</p>
+                )}
+              </div>
             </div>
           </div>
 

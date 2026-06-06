@@ -113,12 +113,14 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "CEUR PDF Check" })).toBeVisible();
-  await expect(page.getByText("Генератор звіту перевірки рукопису")).toBeVisible();
+  await expect(page.getByText("Перевірка рукопису для CEUR-WS")).toBeVisible();
   await expect(page.getByText("Завантаження рукопису")).toBeVisible();
   await expect(page.getByText("Markdown-вивід перевірки")).toBeVisible();
   await expect(page.getByText("Файл не вибрано")).toBeVisible();
   await expect(page.getByRole("button", { name: "Запустити перевірку" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Завантажити report.md" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Перегляд" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Код" })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByRole("button", { name: "Українська" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("Check profile")).not.toBeVisible();
   await expectNoDocumentScroll(page);
@@ -129,6 +131,8 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await expect(page.getByText("Markdown validation output")).toBeVisible();
   await expect(page.getByText("No file selected")).toBeVisible();
   await expect(page.getByRole("button", { name: "Run check" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
   await expectNoDocumentScroll(page);
 });
@@ -377,10 +381,22 @@ test("translates reports in Ukrainian and preserves raw English output in downlo
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("paper.pdf"));
   await page.getByRole("button", { name: "Запустити перевірку" }).click();
 
-  await expect(page.getByText("Звіт перевірки CEUR PDF")).toBeVisible();
-  await expect(page.getByText("| Статус | Знахідки |")).toBeVisible();
-  await expect(page.getByText("## Сирий вивід CEUR (англійською)")).toBeVisible();
+  const report = page.getByLabel("Markdown-звіт перевірки");
+  await expect(report.getByRole("heading", { name: "Звіт перевірки CEUR PDF", level: 1 })).toBeVisible();
+  await expect(report.locator("table")).toBeVisible();
+  await expect(report.locator("td").filter({ hasText: "Знахідки" })).toBeVisible();
+  await expect(report.getByRole("heading", { name: "Сирий вивід CEUR (англійською)", level: 2 })).toBeVisible();
+  await expect(report.getByText("| Статус | Знахідки |")).not.toBeVisible();
   await expect(page.getByText("WARNING: raw English output")).toBeVisible();
+
+  await page.getByRole("button", { name: "Код" }).click();
+  await expect(page.getByRole("button", { name: "Код" })).toHaveAttribute("aria-pressed", "true");
+  await expect(report.locator("pre").filter({ hasText: "# Звіт перевірки CEUR PDF" })).toBeVisible();
+  await expect(report.getByText("| Статус | Знахідки |")).toBeVisible();
+
+  await page.getByRole("button", { name: "Перегляд" }).click();
+  await expect(report.getByRole("heading", { name: "Звіт перевірки CEUR PDF", level: 1 })).toBeVisible();
+  await expect(report.locator("table")).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Завантажити report.md" }).click();
@@ -540,7 +556,7 @@ test("checks a PDF and can switch the real report back to English", async ({ pag
   await page.getByRole("button", { name: "Запустити перевірку" }).click();
   await expect(page.getByText("Звіт перевірки CEUR PDF")).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText("Сирий вивід CEUR (англійською)")).toBeVisible();
-  await expect(page.getByText("Can't open index.html: No such file or directory.")).toBeVisible();
+  await expect(page.getByText("Can't open index.html: No such file or directory.", { exact: true })).toBeVisible();
 
   await switchToEnglish(page);
   await expect(page.getByText("CEUR PDF Check Report")).toBeVisible();

@@ -67,6 +67,19 @@ button {
 
 .report-markdown {
   tab-size: 2;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.report-markdown > :first-child {
+  margin-top: 0;
+}
+
+.report-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.report-markdown pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
 }
