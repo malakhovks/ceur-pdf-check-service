@@ -91,9 +91,10 @@ Use TypeScript/React for the web UI. Keep Auth.js server-only code in server
 files (`auth.ts`, route handlers, server pages) and client-only browser behavior
 in `"use client"` components such as `app/checker-ui.tsx`. Render checker
 reports through the existing Markdown preview/source toggle; downloads should
-still save Markdown source. Keep dashboard layout changes report-first: compact
-controls above an equal-width, full-width report surface, no notes surface, and
-no document scroll. When backend error strings change, update the client
+still save raw Markdown source and use analyzed-file-based names such as
+`report_paper.md`. Keep dashboard layout changes report-first: compact controls
+above an equal-width, full-width report surface, no notes surface, and no
+document scroll. When backend error strings change, update the client
 `errorTranslations` map and Ukrainian/English copy together so server-origin
 failures remain localized.
 
@@ -115,7 +116,9 @@ equal dashboard/report widths, and the enlarged report surface. Verify compact
 viewports use internal scrolling for controls and report content. For report
 rendering changes, verify both rendered Markdown preview and raw source mode. For
 API error
-changes, verify localized server-side errors in both Ukrainian and English.
+changes, verify localized server-side errors in both Ukrainian and English. For
+report download changes, verify both raw Markdown content and the suggested
+filename derived from the analyzed manuscript.
 
 ## Commit & Pull Request Guidelines
 

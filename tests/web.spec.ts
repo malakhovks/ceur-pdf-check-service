@@ -385,7 +385,7 @@ test("localizes server-side checker API errors", async ({ page }) => {
   await expect(page.getByRole("alert").filter({ hasText: "The checker exceeded the time limit." })).toBeVisible();
 });
 
-test("translates reports in Ukrainian and preserves raw English output in downloads", async ({ page }) => {
+test("translates reports in Ukrainian while source and downloads stay raw", async ({ page }) => {
   await page.route("/api/check", async (route) => {
     await route.fulfill({
       status: 200,
@@ -416,8 +416,9 @@ test("translates reports in Ukrainian and preserves raw English output in downlo
 
   await page.getByRole("button", { name: "Код" }).click();
   await expect(page.getByRole("button", { name: "Код" })).toHaveAttribute("aria-pressed", "true");
-  await expect(report.locator("pre").filter({ hasText: "# Звіт перевірки CEUR PDF" })).toBeVisible();
-  await expect(report.getByText("| Статус | Знахідки |")).toBeVisible();
+  await expect(report.locator("pre").filter({ hasText: "# CEUR PDF Check Report" })).toBeVisible();
+  await expect(report.locator("pre").filter({ hasText: "| Status | fail |" })).toBeVisible();
+  await expect(report.getByText("| Статус | Знахідки |")).not.toBeVisible();
 
   await page.getByRole("button", { name: "Перегляд" }).click();
   await expect(report.getByRole("heading", { name: "Звіт перевірки CEUR PDF", level: 1 })).toBeVisible();
@@ -426,12 +427,15 @@ test("translates reports in Ukrainian and preserves raw English output in downlo
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Завантажити report.md" }).click();
   const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("report_paper.md");
   const downloadPath = await download.path();
   expect(downloadPath).toBeTruthy();
   const content = await readFile(downloadPath!, "utf8");
-  expect(content).toContain("# Звіт перевірки CEUR PDF");
-  expect(content).toContain("## Сирий вивід CEUR (англійською)");
+  expect(content).toContain("# CEUR PDF Check Report");
+  expect(content).toContain("## Raw CEUR Output");
   expect(content).toContain("WARNING: raw English output");
+  expect(content).not.toContain("# Звіт перевірки CEUR PDF");
+  expect(content).not.toContain("## Сирий вивід CEUR (англійською)");
 });
 
 test("uses internal report scrolling for long output", async ({ page }) => {
@@ -590,5 +594,5 @@ test("checks a PDF and can switch the real report back to English", async ({ pag
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download report.md" }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("report.md");
+  expect(download.suggestedFilename()).toBe("report_Malakhov_et_al_UkrPROG_2026_id_22_revised.md");
 });

@@ -24,11 +24,13 @@ docker compose --env-file .env down
 ```
 
 Sign in with Google, upload a PDF, DOCX, DOC, or ODT manuscript, run the check,
-read the generated Markdown report, and download `report.md`. The report panel
-renders Markdown by default and includes a preview/source switcher for
-inspecting the raw Markdown that is saved in downloads. The dashboard localizes
-checker/API errors in Ukrainian and English, including upload parsing, queue,
-timeout, and missing report failures.
+read the generated Markdown report, and download `report_<manuscript-stem>.md`,
+for example `report_paper.md`. The report panel renders Markdown by default and
+includes a preview/source switcher. Ukrainian preview localizes report
+headings/metadata for reading, while source mode and downloads keep the raw
+Markdown emitted by the checker. The dashboard localizes checker/API errors in
+Ukrainian and English, including upload parsing, queue, timeout, and missing
+report failures.
 It keeps the fixed-shell layout with a compact control panel, an enlarged
 full-width report workspace, and internal scrolling for long reports and
 compact mobile viewports. The notes panel has been removed so the report
@@ -175,9 +177,10 @@ it only for local or CI verification by setting `AUTH_TEST_MODE=true` and
 `AUTH_TEST_LOGIN_TOKEN` on the app container before running Playwright. The
 web tests cover authentication, localized server-side error handling, fixed-shell
 layout, compact dashboard/report alignment, compact viewport reachability,
-rendered Markdown reports, source-mode Markdown, internal report scrolling, stale
-response handling, supported
-manuscript selection, converted-manuscript regressions, and real PDF checks.
+rendered Markdown reports, source-mode Markdown, raw report downloads with
+analyzed-file-based filenames, internal report scrolling, stale response
+handling, supported manuscript selection, converted-manuscript regressions, and
+real PDF checks.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.

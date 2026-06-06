@@ -259,6 +259,20 @@ function isSupportedManuscript(file: File) {
   return supportedManuscriptExtensions.some((extension) => lowerName.endsWith(extension)) || supportedManuscriptMimeTypes.has(file.type.toLowerCase());
 }
 
+function reportDownloadFilename(filename: string | null | undefined) {
+  if (!filename) {
+    return "report.md";
+  }
+
+  const basename = filename.split(/[/\\]/).pop() || "";
+  const lowerName = basename.toLowerCase();
+  const extension = supportedManuscriptExtensions.find((candidate) => lowerName.endsWith(candidate));
+  const stem = extension ? basename.slice(0, -extension.length) : basename;
+  const normalized = stem.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+$/, "").slice(0, 120);
+
+  return normalized ? `report_${normalized}.md` : "report.md";
+}
+
 
 function classNames(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -383,6 +397,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const [language, setLanguage] = useState<Language>("uk");
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState("");
+  const [reportFilename, setReportFilename] = useState("");
   const [reportView, setReportView] = useState<ReportView>("preview");
   const [status, setStatus] = useState<string | null>(null);
   const [findingCount, setFindingCount] = useState<number | null>(null);
@@ -397,7 +412,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
 
   const t = translations[language];
   const selectedName = file ? file.name : t.upload.noFileSelected;
-  const displayReport = useMemo(() => translateReport(report, language), [report, language]);
+  const previewReport = useMemo(() => translateReport(report, language), [report, language]);
   const signedInLabel = user.name || user.email || "Google user";
   const signedInDetail = user.email && user.email !== signedInLabel ? user.email : "Google";
 
@@ -415,6 +430,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
 
   const resetResult = () => {
     setReport("");
+    setReportFilename("");
     setStatus(null);
     setFindingCount(null);
     setExitCode(null);
@@ -446,11 +462,11 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   };
 
   const downloadReport = () => {
-    if (!displayReport) return;
-    const url = URL.createObjectURL(new Blob([displayReport], { type: "text/markdown;charset=utf-8" }));
+    if (!report) return;
+    const url = URL.createObjectURL(new Blob([report], { type: "text/markdown;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "report.md";
+    anchor.download = reportDownloadFilename(reportFilename);
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -493,6 +509,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
       if (!response.ok) {
         handledApiError = true;
         setReport(payload.report || "");
+        setReportFilename(payload.filename || "");
         setStatus(payload.status || "error");
         setFindingCount(payload.findingCount ?? null);
         setExitCode(payload.exitCode ?? null);
@@ -500,6 +517,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
       }
 
       setReport(payload.report || "");
+      setReportFilename(payload.filename || "");
       setStatus(payload.status || "unknown");
       setFindingCount(payload.findingCount ?? null);
       setExitCode(payload.exitCode ?? null);
@@ -513,6 +531,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
         setFindingCount(null);
         setExitCode(null);
         setReport("");
+        setReportFilename("");
       }
       const message = checkError instanceof Error ? checkError.message : "The checker failed.";
       setError(message);
@@ -737,10 +756,10 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 <button
                   type="button"
                   onClick={downloadReport}
-                  disabled={!displayReport}
+                  disabled={!report}
                   className={classNames(
                     "inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
-                    displayReport ? "reference-dark" : "reference-disabled",
+                    report ? "reference-dark" : "reference-disabled",
                   )}
                 >
                   <Download className="h-4 w-4" />
@@ -750,13 +769,13 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
             </div>
             <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-[24px] border border-white/70 bg-[#faf6f0]">
               <div className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-slate-700" aria-label={t.report.ariaLabel}>
-                {displayReport ? (
+                {report ? (
                   reportView === "preview" ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                      {displayReport}
+                      {previewReport}
                     </ReactMarkdown>
                   ) : (
-                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-slate-700">{displayReport}</pre>
+                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-slate-700">{report}</pre>
                   )
                 ) : (
                   <p className="m-0 text-slate-500">{t.report.empty}</p>
