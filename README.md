@@ -29,8 +29,10 @@ renders Markdown by default and includes a preview/source switcher for
 inspecting the raw Markdown that is saved in downloads. The dashboard localizes
 checker/API errors in Ukrainian and English, including upload parsing, queue,
 timeout, and missing report failures.
-It keeps the current fixed-shell layout while using internal scrolling for long
-reports and compact mobile viewports. The dashboard and `/api/check` require an
+It keeps the fixed-shell layout with a compact control panel, an enlarged
+full-width report workspace, and internal scrolling for long reports and
+compact mobile viewports. The notes panel has been removed so the report
+remains the primary workspace. The dashboard and `/api/check` require an
 authenticated Google session; `/api/health` stays public for Docker health
 checks.
 
@@ -172,8 +174,9 @@ The e2e suite authenticates with the disabled-by-default test provider. Enable
 it only for local or CI verification by setting `AUTH_TEST_MODE=true` and
 `AUTH_TEST_LOGIN_TOKEN` on the app container before running Playwright. The
 web tests cover authentication, localized server-side error handling, fixed-shell
-layout, compact viewport reachability, rendered Markdown reports, source-mode
-Markdown, internal report scrolling, stale response handling, supported
+layout, compact dashboard/report alignment, compact viewport reachability,
+rendered Markdown reports, source-mode Markdown, internal report scrolling, stale
+response handling, supported
 manuscript selection, converted-manuscript regressions, and real PDF checks.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The

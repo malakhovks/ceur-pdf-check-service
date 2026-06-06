@@ -119,7 +119,9 @@ test("rejects checker API requests without a session", async ({ request }) => {
 test("shows Ukrainian UI by default and switches to English", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "CEUR PDF Check" })).toBeVisible();
+  const dashboardHeading = page.getByRole("heading", { name: "CEUR PDF Check" });
+  await expect(dashboardHeading).toBeVisible();
+  await expect.poll(async () => dashboardHeading.evaluate((element) => getComputedStyle(element).fontSize)).toBe("24px");
   await expect(page.getByText("Перевірка рукопису для CEUR-WS")).toBeVisible();
   await expect(page.getByText("Завантаження рукопису")).toBeVisible();
   await expect(page.getByText("Markdown-вивід перевірки")).toBeVisible();
@@ -214,7 +216,7 @@ test("uses reference dashboard colors and rounded forms", async ({ page }) => {
   await expectNoDocumentScroll(page);
 });
 
-test("aligns dashboard controls with report surfaces on desktop", async ({ page, isMobile }) => {
+test("aligns the compact dashboard panel with the expanded report surface on desktop", async ({ page, isMobile }) => {
   test.skip(isMobile, "desktop column alignment is not used on mobile");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
@@ -231,19 +233,22 @@ test("aligns dashboard controls with report surfaces on desktop", async ({ page,
     };
 
     return {
+      dashboard: rectFor("dashboard-panel"),
       dropzone: rectFor("upload-dropzone"),
       stats: rectFor("stats-grid"),
       action: rectFor("action-panel"),
       report: rectFor("report-surface"),
-      notes: rectFor("notes-surface"),
+      notesPresent: Boolean(document.querySelector('[data-testid="notes-surface"]')),
     };
   });
 
   expect(Math.abs(boxes.dropzone.height - boxes.stats.height)).toBeLessThanOrEqual(1);
-  expect(Math.abs(boxes.report.right - boxes.stats.right)).toBeLessThanOrEqual(1);
-  expect(Math.abs(boxes.notes.left - boxes.action.left)).toBeLessThanOrEqual(1);
-  expect(Math.abs(boxes.notes.right - boxes.action.right)).toBeLessThanOrEqual(1);
-  expect(Math.abs(boxes.notes.width - boxes.action.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(boxes.action.height - boxes.stats.height)).toBeLessThanOrEqual(1);
+  expect(boxes.notesPresent).toBe(false);
+  expect(Math.abs(boxes.report.left - boxes.dashboard.left)).toBeLessThanOrEqual(1);
+  expect(Math.abs(boxes.report.right - boxes.dashboard.right)).toBeLessThanOrEqual(1);
+  expect(Math.abs(boxes.report.width - boxes.dashboard.width)).toBeLessThanOrEqual(1);
+  expect(boxes.report.height).toBeGreaterThan(boxes.dashboard.height);
   await expectNoDocumentScroll(page);
 });
 

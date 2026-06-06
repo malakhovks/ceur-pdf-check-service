@@ -16,7 +16,8 @@ All notable changes to this project are documented here.
 - Improved dashboard error handling so server-side checker, upload parsing, queue wait, and timeout errors are localized in Ukrainian and English.
 - Aligned PDF validation error text between `/api/check` and the client-side upload flow.
 - Improved fixed-shell dashboard sizing with dynamic viewport height and internal panel scrolling for short mobile screens.
-- Added Playwright coverage for server-origin error localization and compact viewport reachability.
+- Compact dashboard workspace by reducing the main title to 1.5rem, shrinking the top controls, removing the notes surface, and expanding the report panel to the full dashboard width.
+- Added Playwright coverage for compact dashboard/report alignment, removed notes surface, title sizing, server-origin error localization, and compact viewport reachability.
 - Added CEURART-style rendered reference validation for checked PDFs, using Poppler text extraction and a new `ceur-reference-check` helper.
 - Added `## Reference Check` report output with reference status/error counts; reference-format errors now fail the overall report status.
 - Added Playwright coverage for valid and invalid reference sections plus CLI report integration.

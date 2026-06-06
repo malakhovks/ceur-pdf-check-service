@@ -82,13 +82,6 @@ type Translation = {
     preview: string;
     source: string;
   };
-  notes: {
-    title: string;
-    badge: string;
-    findings: string;
-    singleManuscript: string;
-    rawOutput: string;
-  };
   status: Record<string, string>;
   errors: Record<string, string>;
 };
@@ -133,13 +126,6 @@ const translations: Record<Language, Translation> = {
       viewMode: "Вигляд звіту",
       preview: "Перегляд",
       source: "Код",
-    },
-    notes: {
-      title: "Примітки до виводу",
-      badge: "Markdown",
-      findings: "Знахідки CEUR можуть встановити статус помилки навіть тоді, коли процес перевірки завершується штатно.",
-      singleManuscript: "Перевірка одного рукопису не містить index.html, тому перевірки назви можуть повідомити про відсутній супровідний файл.",
-      rawOutput: "Сирий вивід CEUR зберігається англійською мовою для аудиту.",
     },
     status: {
       waiting: "Очікування",
@@ -208,13 +194,6 @@ const translations: Record<Language, Translation> = {
       viewMode: "Report view",
       preview: "Preview",
       source: "Source",
-    },
-    notes: {
-      title: "Output notes",
-      badge: "Markdown",
-      findings: "CEUR findings can fail the status even when the checker process exits normally.",
-      singleManuscript: "Single-manuscript checks do not include index.html, so title checks may report that companion file as missing.",
-      rawOutput: "Raw CEUR output is preserved in English for auditability.",
     },
     status: {
       waiting: "Waiting",
@@ -565,7 +544,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
           className="mb-3 flex shrink-0 flex-col gap-3 px-1 pt-1 lg:flex-row lg:items-start lg:justify-between"
         >
           <div className="min-w-0">
-            <h1 className="font-display text-[2.4rem] leading-none text-slate-950 sm:text-[3.4rem]">{t.meta.title}</h1>
+            <h1 className="font-display text-[1.5rem] leading-tight text-slate-950">{t.meta.title}</h1>
             <p className="mt-1 text-sm text-slate-600 sm:text-base">{t.meta.subtitle}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -624,8 +603,8 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
           </div>
         </header>
 
-        <section data-testid="dashboard-panel" className="surface mb-3 max-h-[42dvh] shrink-0 overflow-auto rounded-[30px] px-4 py-3 sm:px-5 xl:max-h-none xl:overflow-visible">
-          <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.42fr)_minmax(18rem,0.34fr)]">
+        <section data-testid="dashboard-panel" className="surface mb-2 max-h-[34dvh] shrink-0 overflow-auto rounded-[30px] px-3 py-2 sm:px-4">
+          <div className="grid items-stretch gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.78fr)_minmax(15rem,0.58fr)]">
             <div className="flex min-h-0">
               <input
                 id="manuscript-upload"
@@ -643,7 +622,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 data-testid="upload-dropzone"
                 aria-describedby="upload-support selected-file"
                 className={classNames(
-                  "flex h-full min-h-36 w-full flex-col justify-between rounded-[24px] border border-dashed px-4 py-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
+                  "flex h-full min-h-24 w-full flex-col justify-between rounded-[24px] border border-dashed px-3 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
                   isDragging ? "border-emerald-400 bg-emerald-50" : "border-white/70 bg-white/72 hover:border-emerald-300 hover:bg-white",
                 )}
                 onClick={() => inputRef.current?.click()}
@@ -661,13 +640,13 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 <span className="flex items-start justify-between gap-4">
                   <span className="min-w-0">
                     <span className="block text-xs font-semibold uppercase text-slate-500">{t.upload.eyebrow}</span>
-                    <span className="mt-1 block text-lg font-semibold text-slate-900">{t.upload.title}</span>
+                    <span className="mt-1 block text-base font-semibold text-slate-900">{t.upload.title}</span>
                   </span>
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-emerald-50 text-emerald-800">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[18px] bg-emerald-50 text-emerald-800">
                     <UploadCloud className="h-5 w-5" />
                   </span>
                 </span>
-                <span className="mt-4 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500">
+                <span className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500">
                   <span id="upload-support" className="inline-flex rounded-full border border-white/70 bg-white/78 px-2 py-1 text-xs font-semibold uppercase text-slate-500">
                     {t.upload.support}
                   </span>
@@ -676,28 +655,28 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               </button>
             </div>
 
-            <div data-testid="stats-grid" className="grid grid-cols-2 gap-2 rounded-[24px] border border-white/70 bg-white/55 p-2 sm:p-3 xl:self-stretch">
-              <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-3">
+            <div data-testid="stats-grid" className="grid grid-cols-2 gap-2 rounded-[24px] border border-white/70 bg-white/55 p-2 sm:grid-cols-4 xl:self-stretch">
+              <div className="rounded-[22px] border border-white/70 bg-white/78 px-2.5 py-2">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-500"><FileText className="h-4 w-4" />{t.stats.file}</div>
-                <div className="mt-2 break-words text-base font-semibold text-slate-900">{file ? t.stats.ready : t.stats.empty}</div>
+                <div className="mt-1 break-words text-sm font-semibold text-slate-900">{file ? t.stats.ready : t.stats.empty}</div>
                 <div className="mt-1 text-xs text-slate-500">{formatFileSize(file, t)}</div>
               </div>
-              <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-3" aria-live="polite">
+              <div className="rounded-[22px] border border-white/70 bg-white/78 px-2.5 py-2" aria-live="polite">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-500"><StatusIcon className="h-4 w-4" />{t.stats.status}</div>
-                <div className="mt-2 break-words text-base font-semibold text-slate-900">{isChecking ? t.status.running : statusLabel(status, t)}</div>
+                <div className="mt-1 break-words text-sm font-semibold text-slate-900">{isChecking ? t.status.running : statusLabel(status, t)}</div>
                 <div className="mt-1 text-xs text-slate-500">{isChecking ? t.stats.activeTests : t.stats.allTests}</div>
               </div>
-              <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-3">
+              <div className="rounded-[22px] border border-white/70 bg-white/78 px-2.5 py-2">
                 <div className="text-xs font-semibold uppercase text-slate-500">{t.stats.findings}</div>
-                <div className="mt-2 text-base font-semibold text-slate-900">{findingCount ?? t.stats.notAvailable}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">{findingCount ?? t.stats.notAvailable}</div>
               </div>
-              <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-3">
+              <div className="rounded-[22px] border border-white/70 bg-white/78 px-2.5 py-2">
                 <div className="text-xs font-semibold uppercase text-slate-500">{t.stats.exitCode}</div>
-                <div className="mt-2 text-base font-semibold text-slate-900">{exitCode ?? t.stats.notAvailable}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">{exitCode ?? t.stats.notAvailable}</div>
               </div>
             </div>
 
-            <div data-testid="action-panel" className="flex flex-col justify-between rounded-[24px] border border-white/70 bg-white/55 px-4 py-3 text-slate-900">
+            <div data-testid="action-panel" className="flex flex-col justify-between rounded-[24px] border border-white/70 bg-white/55 px-3 py-2 text-slate-900">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={classNames("inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold", statusTone)} aria-live="polite">
                   <StatusIcon className="h-3.5 w-3.5" />
@@ -710,7 +689,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 onClick={runCheck}
                 disabled={!file || isChecking}
                 className={classNames(
-                  "mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 py-2 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
+                  "mt-2 inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-4 py-1.5 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
                   !file || isChecking ? "reference-disabled" : "reference-dark",
                 )}
               >
@@ -727,8 +706,8 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
           </div>
         </section>
 
-        <section data-testid="content-grid" className="grid min-h-0 flex-1 items-stretch gap-3 overflow-hidden px-[17px] sm:px-[21px] xl:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.42fr)_minmax(18rem,0.34fr)]">
-          <div data-testid="report-surface" className="surface flex min-h-0 min-w-0 flex-col rounded-[30px] p-3 sm:p-4 xl:col-span-2">
+        <section data-testid="content-grid" className="grid min-h-0 flex-1 items-stretch overflow-hidden">
+          <div data-testid="report-surface" className="surface flex min-h-0 min-w-0 flex-col rounded-[30px] p-3 sm:p-4">
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase text-slate-500">{t.report.eyebrow}</p>
@@ -785,20 +764,6 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               </div>
             </div>
           </div>
-
-          <aside className="hidden min-h-0 xl:block">
-            <section data-testid="notes-surface" className="surface flex h-full min-h-0 flex-col rounded-[30px] p-4">
-              <div className="flex shrink-0 items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">{t.notes.title}</div>
-                <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">{t.notes.badge}</span>
-              </div>
-              <div className="mt-3 min-h-0 space-y-3 overflow-auto text-sm text-slate-500">
-                <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-2">{t.notes.findings}</div>
-                <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-2">{t.notes.singleManuscript}</div>
-                <div className="rounded-[22px] border border-white/70 bg-white/78 px-3 py-2">{t.notes.rawOutput}</div>
-              </div>
-            </section>
-          </aside>
         </section>
       </div>
     </main>
