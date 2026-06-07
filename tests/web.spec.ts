@@ -198,8 +198,14 @@ test("opens localized info modal and persists the dark theme", async ({ page }) 
   await page.getByRole("button", { name: "Інфо" }).click();
   const ukDialog = page.getByRole("dialog", { name: "Можливості застосунку" });
   await expect(ukDialog).toBeVisible();
+  await expect(ukDialog).toHaveClass(/max-w-3xl/);
   await expect(ukDialog).toContainText("Завантажуйте PDF, DOCX, DOC або ODT рукописи.");
   await expect(ukDialog).toContainText("Читайте Markdown-звіт у режимі перегляду або сирого коду.");
+  await expect(ukDialog).toContainText("Додайте розділ References і використовуйте послідовну нумерацію [1], [2], [3].");
+  await expect(ukDialog).toContainText("Завантажте цей Markdown-файл у діалог ChatGPT.");
+  const ukPromptLink = ukDialog.getByRole("link", { name: "Завантажити промпт ceur_ws_reference_prompt.md для ChatGPT" });
+  await expect(ukPromptLink).toHaveAttribute("href", "/ceur_ws_reference_prompt.md");
+  await expect(ukPromptLink).toHaveAttribute("download", "ceur_ws_reference_prompt.md");
   await page.keyboard.press("Escape");
   await expect(ukDialog).not.toBeVisible();
 
@@ -207,8 +213,14 @@ test("opens localized info modal and persists the dark theme", async ({ page }) 
   await page.getByRole("button", { name: "Info" }).click();
   const enDialog = page.getByRole("dialog", { name: "App features" });
   await expect(enDialog).toBeVisible();
+  await expect(enDialog).toHaveClass(/max-w-3xl/);
   await expect(enDialog).toContainText("Upload PDF, DOCX, DOC, or ODT manuscripts.");
   await expect(enDialog).toContainText("Review the Markdown report as rendered preview or raw source.");
+  await expect(enDialog).toContainText("Add a References section and use sequential bracketed labels: [1], [2], [3].");
+  await expect(enDialog).toContainText("Upload this Markdown file to a ChatGPT dialog.");
+  const enPromptLink = enDialog.getByRole("link", { name: "Download the ceur_ws_reference_prompt.md prompt for ChatGPT" });
+  await expect(enPromptLink).toHaveAttribute("href", "/ceur_ws_reference_prompt.md");
+  await expect(enPromptLink).toHaveAttribute("download", "ceur_ws_reference_prompt.md");
   await enDialog.getByRole("button", { name: "Close" }).last().click();
   await expect(enDialog).not.toBeVisible();
 

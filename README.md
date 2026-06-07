@@ -32,10 +32,12 @@ Markdown emitted by the checker.
 
 The dashboard header includes project links, localized developer credit, a
 localized Info modal, a persisted light/dark theme switcher, and compact
-`UA`/`EN` language controls. The theme choice is stored in the browser and the
-header switchers avoid full visible labels while keeping accessible names. The
-dashboard localizes checker/API errors in Ukrainian and English, including
-upload parsing, queue, timeout, and missing report failures.
+`UA`/`EN` language controls. The larger Info modal explains supported checks,
+Reference mistake repair, and the ChatGPT prompt workflow in Ukrainian and
+English. The theme choice is stored in the browser and the header switchers
+avoid full visible labels while keeping accessible names. The dashboard
+localizes checker/API errors in Ukrainian and English, including upload parsing,
+queue, timeout, and missing report failures.
 
 It keeps the fixed-shell layout with a compact control panel, an enlarged
 full-width report workspace, and internal scrolling for long reports and
@@ -43,6 +45,12 @@ compact mobile viewports. The notes panel has been removed so the report
 remains the primary workspace. The dashboard and `/api/check` require an
 authenticated Google session; `/api/health` stays public for Docker health
 checks.
+
+The Info modal links to `/ceur_ws_reference_prompt.md`, served from
+`public/ceur_ws_reference_prompt.md`. To generate CEUR-WS references, download
+that Markdown file, upload it to a ChatGPT dialog, paste a list of URLs or DOIs
+in the message field, review the generated references, and copy them into the
+manuscript References section.
 
 Configure Google OAuth in `.env` before deployment:
 
@@ -184,10 +192,11 @@ it only for local or CI verification by setting `AUTH_TEST_MODE=true` and
 `AUTH_TEST_LOGIN_TOKEN` on the app container before running Playwright. The
 web tests cover authentication, localized server-side error handling, fixed-shell
 layout, compact dashboard/report alignment, compact viewport reachability, the
-Info modal, persisted dark theme, wordless header switchers, rendered Markdown
-reports, source-mode Markdown, raw report downloads with analyzed-file-based
-filenames, internal report scrolling, stale response handling, supported
-manuscript selection, converted-manuscript regressions, and real PDF checks.
+Info modal Reference guidance and prompt download link, persisted dark theme,
+wordless header switchers, rendered Markdown reports, source-mode Markdown, raw
+report downloads with analyzed-file-based filenames, internal report scrolling,
+stale response handling, supported manuscript selection, converted-manuscript
+regressions, and real PDF checks.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.

@@ -97,6 +97,13 @@ type Translation = {
     title: string;
     intro: string;
     features: string[];
+    referenceTitle: string;
+    referenceIntro: string;
+    referenceFixes: string[];
+    promptTitle: string;
+    promptSteps: string[];
+    promptDownload: string;
+    promptDownloadAria: string;
     close: string;
   };
   status: Record<string, string>;
@@ -159,6 +166,23 @@ const translations: Record<Language, Translation> = {
         "Читайте Markdown-звіт у режимі перегляду або сирого коду.",
         "Завантажуйте оригінальний Markdown-звіт з назвою за рукописом.",
       ],
+      referenceTitle: "Як виправити помилки в Reference",
+      referenceIntro: "Якщо звіт показує помилки Reference, виправте список посилань у рукописі та запустіть перевірку ще раз.",
+      referenceFixes: [
+        "Додайте розділ References і використовуйте послідовну нумерацію [1], [2], [3].",
+        "Приберіть сирий BibTeX або LaTeX-код зі списку посилань.",
+        "Перевірте авторів, назви, рік, видання та сторінки за офіційними джерелами.",
+        "Для наукових джерел додавайте doi:10...; для вебресурсів додавайте URL: і дату доступу.",
+      ],
+      promptTitle: "Промпт для ChatGPT",
+      promptSteps: [
+        "Завантажте файл ceur_ws_reference_prompt.md за посиланням нижче.",
+        "Завантажте цей Markdown-файл у діалог ChatGPT.",
+        "У текстовому полі ChatGPT вставте список URL або DOI та надішліть запит.",
+        "Перевірте результат і вставте готові CEUR-WS посилання у рукопис.",
+      ],
+      promptDownload: "Завантажити ceur_ws_reference_prompt.md",
+      promptDownloadAria: "Завантажити промпт ceur_ws_reference_prompt.md для ChatGPT",
       close: "Закрити",
     },
     status: {
@@ -244,6 +268,23 @@ const translations: Record<Language, Translation> = {
         "Review the Markdown report as rendered preview or raw source.",
         "Download the original Markdown report with a manuscript-based filename.",
       ],
+      referenceTitle: "How to fix Reference mistakes",
+      referenceIntro: "If the report shows Reference errors, fix the reference list in the manuscript and run the check again.",
+      referenceFixes: [
+        "Add a References section and use sequential bracketed labels: [1], [2], [3].",
+        "Remove raw BibTeX or LaTeX code from the rendered reference list.",
+        "Verify authors, titles, year, venue, and pages against official sources.",
+        "Use doi:10... for scholarly sources; use URL: and an access date for web resources.",
+      ],
+      promptTitle: "ChatGPT prompt",
+      promptSteps: [
+        "Download ceur_ws_reference_prompt.md from the link below.",
+        "Upload this Markdown file to a ChatGPT dialog.",
+        "Paste the list of URLs or DOIs into the ChatGPT text field and send it.",
+        "Review the result and copy the generated CEUR-WS references into the manuscript.",
+      ],
+      promptDownload: "Download ceur_ws_reference_prompt.md",
+      promptDownloadAria: "Download the ceur_ws_reference_prompt.md prompt for ChatGPT",
       close: "Close",
     },
     status: {
@@ -754,7 +795,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="info-modal-title"
-              className="modal-panel max-h-full w-full max-w-xl overflow-auto rounded-[28px] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]"
+              className="modal-panel max-h-full w-full max-w-3xl overflow-auto rounded-[28px] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -780,6 +821,37 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                   </li>
                 ))}
               </ul>
+              <div className="mt-6 grid gap-6 border-t border-[color:var(--app-border)] pt-5 md:grid-cols-2">
+                <section className="min-w-0">
+                  <h3 className="text-base font-semibold leading-tight text-heading">{t.help.referenceTitle}</h3>
+                  <p className="mt-2 text-sm leading-6 text-body">{t.help.referenceIntro}</p>
+                  <ul className="mt-3 space-y-2 text-sm leading-6 text-body">
+                    {t.help.referenceFixes.map((fix) => (
+                      <li key={fix} className="flex gap-3">
+                        <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+                        <span>{fix}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+                <section className="min-w-0">
+                  <h3 className="text-base font-semibold leading-tight text-heading">{t.help.promptTitle}</h3>
+                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-body">
+                    {t.help.promptSteps.map((step) => (
+                      <li key={step} className="pl-1">{step}</li>
+                    ))}
+                  </ol>
+                  <a
+                    href="/ceur_ws_reference_prompt.md"
+                    download="ceur_ws_reference_prompt.md"
+                    className="reference-dark mt-4 inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition focus-ring"
+                    aria-label={t.help.promptDownloadAria}
+                  >
+                    <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 break-words text-left">{t.help.promptDownload}</span>
+                  </a>
+                </section>
+              </div>
               <div className="mt-5 flex justify-end">
                 <button
                   type="button"

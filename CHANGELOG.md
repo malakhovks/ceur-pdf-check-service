@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Expanded the localized dashboard Info modal with Reference mistake repair guidance and a larger responsive panel.
+- Added a public `ceur_ws_reference_prompt.md` ChatGPT prompt download for creating CEUR-WS references from URLs or DOIs.
+- Added bilingual Info modal instructions for downloading the prompt, uploading it to ChatGPT, pasting URLs/DOIs, and copying generated CEUR-WS references into the manuscript.
+- Added Playwright coverage for the larger Info modal, localized Reference guidance, and prompt download link.
 - Added a localized dashboard Info modal describing supported uploads, CEUR checks, report views, and Markdown downloads.
 - Added persistent light/dark dashboard themes with a compact wordless sun/moon header switcher.
 - Added a compact `UA`/`EN` language switcher and localized the developer credit label in Ukrainian.

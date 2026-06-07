@@ -17,13 +17,16 @@ official CEUR-WS `check-pdf-errors` checker.
 - `bin/ceur-reference-check` is the Python helper that extracts rendered PDF text
   with Poppler and validates CEURART-style numbered reference sections.
 - `app/` contains the Next.js App Router UI, Auth.js routes, health/check API
-  routes, sign-in page, protected compact dashboard, localized Info modal,
-  persisted theme controls, compact language controls, and full-width
-  rendered/source Markdown report panel.
+  routes, sign-in page, protected compact dashboard, enlarged localized Info
+  modal with Reference repair guidance and prompt download, persisted theme
+  controls, compact language controls, and full-width rendered/source Markdown
+  report panel.
 - `auth.ts` configures Auth.js Google Sign-In, JWT sessions, and disabled-by-
   default test authentication. `proxy.ts` protects the dashboard and `/api/check`.
 - `tests/` contains Playwright and queue tests. `playwright.config.ts` targets
   desktop and mobile Chromium against `PLAYWRIGHT_BASE_URL`.
+- `public/ceur_ws_reference_prompt.md` is the static ChatGPT prompt downloaded
+  from the Info modal for generating CEUR-WS references from URLs or DOIs.
 - `README.md`, `CHANGELOG.md`, and `AGENTS.md` document usage and project state.
 - `report.md` is a generated sample output. Treat new reports as artifacts unless
   they are intentionally used as fixtures.
@@ -96,6 +99,7 @@ still save raw Markdown source and use analyzed-file-based names such as
 `report_paper.md`. Keep dashboard layout changes report-first: compact controls
 above an equal-width, full-width report surface, no notes surface, and no
 document scroll. Header controls should preserve the localized Info modal,
+Reference repair guidance, static `ceur_ws_reference_prompt.md` download link,
 localStorage-backed light/dark theme switcher, compact `UA`/`EN` language
 switcher, localized developer credit, and accessible labels even when visible
 labels are intentionally short. When backend error strings change, update the
@@ -118,7 +122,8 @@ verify unauthenticated `/api/check` requests return `401`. For dashboard layout
 changes, preserve the no-document-scroll app shell, compact scrollable controls,
 equal dashboard/report widths, and the enlarged report surface. Verify compact
 viewports use internal scrolling for controls and report content. For header
-control changes, verify the Info modal, persisted dark/light theme, wordless
+control changes, verify the Info modal, Reference repair guidance, ChatGPT
+prompt instructions, prompt download link, persisted dark/light theme, wordless
 theme switcher, compact `UA`/`EN` language switcher, localized developer credit,
 and accessible labels in both Ukrainian and English. For report rendering
 changes, verify both rendered Markdown preview and raw source mode. For API error
