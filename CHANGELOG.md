@@ -4,6 +4,9 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added dedicated Playwright concurrency coverage for 2, 4, and 8 authenticated
+  `/api/check` document-processing requests using the required ODT, PDF, and
+  DOCX manuscript samples.
 - Expanded the localized dashboard Info modal with Reference mistake repair guidance and a larger responsive panel.
 - Added a public `ceur_ws_reference_prompt.md` ChatGPT prompt download for creating CEUR-WS references from URLs or DOIs.
 - Added bilingual Info modal instructions for downloading the prompt, uploading it to ChatGPT, pasting URLs/DOIs, and copying generated CEUR-WS references into the manuscript.

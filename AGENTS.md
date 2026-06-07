@@ -23,8 +23,9 @@ official CEUR-WS `check-pdf-errors` checker.
   report panel.
 - `auth.ts` configures Auth.js Google Sign-In, JWT sessions, and disabled-by-
   default test authentication. `proxy.ts` protects the dashboard and `/api/check`.
-- `tests/` contains Playwright and queue tests. `playwright.config.ts` targets
-  desktop and mobile Chromium against `PLAYWRIGHT_BASE_URL`.
+- `tests/` contains Playwright UI/API tests, dedicated concurrent processing
+  coverage, and checker queue tests. `playwright.config.ts` targets desktop and
+  mobile Chromium against `PLAYWRIGHT_BASE_URL`.
 - `public/ceur_ws_reference_prompt.md` is the static ChatGPT prompt downloaded
   from the Info modal for generating CEUR-WS references from URLs or DOIs.
 - `README.md`, `CHANGELOG.md`, and `AGENTS.md` document usage and project state.
@@ -77,6 +78,20 @@ Runs the e2e suite in the required Microsoft Playwright browser image. Enable
 `AUTH_TEST_MODE=true`, set `AUTH_TEST_LOGIN_TOKEN`, and use a local `AUTH_URL`
 such as `http://127.0.0.1:3000` on the app container for test sign-in.
 
+```bash
+docker run --rm --network host \
+  -v "$PWD:/work" \
+  -v ceur-pdf-check-node-modules:/work/node_modules \
+  -w /work \
+  -e PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://127.0.0.1:3000}" \
+  mcr.microsoft.com/playwright:v1.60.0-noble \
+  npx playwright test tests/concurrent-processing.spec.ts --project=chromium
+```
+
+Runs the dedicated 2, 4, and 8 concurrent request document-processing test.
+Start the app with test authentication and `CEUR_QUEUE_TIMEOUT_MS=600000` for
+successful queue-drain validation.
+
 ## Coding Style & Naming Conventions
 
 Use Bash for the CLI and keep existing idioms such as `[[ ... ]]`, process
@@ -118,8 +133,12 @@ and optional `index.html` or `watermark-log.txt` companions.
 
 For web or API changes, rebuild with Docker Compose and run Playwright in
 `mcr.microsoft.com/playwright:v1.60.0-noble`. Keep `/api/health` public and
-verify unauthenticated `/api/check` requests return `401`. For dashboard layout
-changes, preserve the no-document-scroll app shell, compact scrollable controls,
+verify unauthenticated `/api/check` requests return `401`. For queue or
+concurrent-processing changes, run `tests/concurrent-processing.spec.ts` with
+`CEUR_QUEUE_TIMEOUT_MS=600000` and verify it uses `CEUR-Template-1col.odt`, the
+sample PDF, and the sample DOCX at 2, 4, and 8 concurrent requests. For
+dashboard layout changes, preserve the no-document-scroll app shell, compact
+scrollable controls,
 equal dashboard/report widths, and the enlarged report surface. Verify compact
 viewports use internal scrolling for controls and report content. For header
 control changes, verify the Info modal, Reference repair guidance, ChatGPT

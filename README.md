@@ -143,6 +143,22 @@ Requests over the active and queued limits return `429` with a retry-friendly
 error message. These limits are per container; use external queueing if multiple
 replicas need a shared global limit.
 
+Successful queue-drain coverage lives in `tests/concurrent-processing.spec.ts`.
+Start the app with test authentication and a longer queue timeout such as
+`CEUR_QUEUE_TIMEOUT_MS=600000`, then run the spec in the required Playwright
+image to submit the required ODT, PDF, and DOCX manuscripts in 2-, 4-, and
+8-request batches:
+
+```bash
+docker run --rm --network host \
+  -v "$PWD:/work" \
+  -v ceur-pdf-check-node-modules:/work/node_modules \
+  -w /work \
+  -e PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
+  mcr.microsoft.com/playwright:v1.60.0-noble \
+  npx playwright test tests/concurrent-processing.spec.ts --project=chromium
+```
+
 ## Local Development
 
 Install dependencies and run the UI locally:
@@ -196,7 +212,8 @@ Info modal Reference guidance and prompt download link, persisted dark theme,
 wordless header switchers, rendered Markdown reports, source-mode Markdown, raw
 report downloads with analyzed-file-based filenames, internal report scrolling,
 stale response handling, supported manuscript selection, converted-manuscript
-regressions, and real PDF checks.
+regressions, real PDF checks, and dedicated 2/4/8 concurrent
+document-processing requests.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.
