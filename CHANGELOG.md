@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added a localized dashboard Info modal describing supported uploads, CEUR checks, report views, and Markdown downloads.
+- Added persistent light/dark dashboard themes with a compact wordless sun/moon header switcher.
+- Added a compact `UA`/`EN` language switcher and localized the developer credit label in Ukrainian.
+- Removed the standalone action-panel “all tests” pill and aligned the status and run controls to the same width and height.
+- Added Playwright coverage for the Info modal, theme persistence, wordless header switchers, localized developer credit, and action-panel sizing.
 - Added PDF, DOCX, DOC, and ODT manuscript checking across the CLI, API, and web dashboard.
 - Added LibreOffice Writer conversion for DOCX, DOC, and ODT manuscripts before CEUR PDF checks.
 - Fixed false `ERROR (P2) with duplicate PDF files!!!!` findings for converted manuscripts by keeping conversion scratch files outside the checker work directory.

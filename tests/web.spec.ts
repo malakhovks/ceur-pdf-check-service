@@ -119,6 +119,8 @@ test("rejects checker API requests without a session", async ({ request }) => {
 test("shows Ukrainian UI by default and switches to English", async ({ page }) => {
   await page.goto("/");
 
+  const header = page.getByTestId("dashboard-header");
+  const themeSwitcher = header.getByTestId("theme-switcher");
   const dashboardHeading = page.getByRole("heading", { name: "CEUR PDF Check" });
   await expect(dashboardHeading).toBeVisible();
   await expect.poll(async () => dashboardHeading.evaluate((element) => getComputedStyle(element).fontSize)).toBe("24px");
@@ -130,7 +132,16 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await expect(page.getByRole("button", { name: "Завантажити report.md" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Перегляд" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Код" })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByRole("button", { name: "Українська" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Інфо" })).toBeVisible();
+  await expect(themeSwitcher).toHaveAttribute("role", "switch");
+  await expect(themeSwitcher).toHaveAttribute("aria-checked", "false");
+  await expect(header.getByRole("button", { name: "Українська" })).toHaveAttribute("aria-pressed", "true");
+  await expect(header.getByRole("button", { name: "Українська" })).toHaveText("UA");
+  await expect(header.getByRole("button", { name: "English" })).toHaveText("EN");
+  await expect(header.getByText("Світла", { exact: true })).toHaveCount(0);
+  await expect(header.getByText("Темна", { exact: true })).toHaveCount(0);
+  await expect(header.getByText("Українська", { exact: true })).toHaveCount(0);
+  await expect(header.getByText("English", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Check profile")).not.toBeVisible();
   await expectNoDocumentScroll(page);
 
@@ -142,7 +153,15 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await expect(page.getByRole("button", { name: "Run check" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Info" })).toBeVisible();
+  await expect(themeSwitcher).toHaveAttribute("aria-checked", "false");
+  await expect(header.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
+  await expect(header.getByRole("button", { name: "Українська" })).toHaveText("UA");
+  await expect(header.getByRole("button", { name: "English" })).toHaveText("EN");
+  await expect(header.getByText("Light", { exact: true })).toHaveCount(0);
+  await expect(header.getByText("Dark", { exact: true })).toHaveCount(0);
+  await expect(header.getByText("Українська", { exact: true })).toHaveCount(0);
+  await expect(header.getByText("English", { exact: true })).toHaveCount(0);
   await expectNoDocumentScroll(page);
 });
 
@@ -154,7 +173,8 @@ test("shows developer credit and fixed project links in the header", async ({ pa
 
   const credit = header.getByTestId("developer-credit");
   await expect(credit).toHaveAttribute("href", "https://linktr.ee/malakhovks");
-  await expect(credit).toContainText("Developer");
+  await expect(credit).toContainText("Розробник");
+  await expect(credit).not.toContainText("Developer");
   await expect(credit).toContainText("MalakhovKS");
 
   const expectedDate = await page.evaluate(() => {
@@ -165,6 +185,65 @@ test("shows developer credit and fixed project links in the header", async ({ pa
     return `${year}-${month}-${day}`;
   });
   await expect(header.getByTestId("developer-credit-date")).toHaveText(expectedDate);
+
+  await switchToEnglish(page);
+  await expect(credit).toContainText("Developer");
+  await expect(credit).toContainText("MalakhovKS");
+  await expectNoDocumentScroll(page);
+});
+
+test("opens localized info modal and persists the dark theme", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Інфо" }).click();
+  const ukDialog = page.getByRole("dialog", { name: "Можливості застосунку" });
+  await expect(ukDialog).toBeVisible();
+  await expect(ukDialog).toContainText("Завантажуйте PDF, DOCX, DOC або ODT рукописи.");
+  await expect(ukDialog).toContainText("Читайте Markdown-звіт у режимі перегляду або сирого коду.");
+  await page.keyboard.press("Escape");
+  await expect(ukDialog).not.toBeVisible();
+
+  await switchToEnglish(page);
+  await page.getByRole("button", { name: "Info" }).click();
+  const enDialog = page.getByRole("dialog", { name: "App features" });
+  await expect(enDialog).toBeVisible();
+  await expect(enDialog).toContainText("Upload PDF, DOCX, DOC, or ODT manuscripts.");
+  await expect(enDialog).toContainText("Review the Markdown report as rendered preview or raw source.");
+  await enDialog.getByRole("button", { name: "Close" }).last().click();
+  await expect(enDialog).not.toBeVisible();
+
+  const header = page.getByTestId("dashboard-header");
+  const themeSwitcher = header.getByTestId("theme-switcher");
+  await themeSwitcher.click();
+  await expect(themeSwitcher).toHaveAttribute("aria-checked", "true");
+  await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+  await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("ceur-pdf-check-theme"))).toBe("dark");
+
+  const darkPalette = await page.evaluate(() => {
+    const appShell = document.querySelector('[data-testid="app-shell"]')!;
+    const dashboardPanel = document.querySelector('[data-testid="dashboard-panel"]')!;
+    const styles = {
+      body: getComputedStyle(document.body),
+      appShell: getComputedStyle(appShell),
+      dashboardPanel: getComputedStyle(dashboardPanel),
+    };
+
+    return {
+      bodyBackground: styles.body.backgroundColor,
+      shellBackgroundImage: styles.appShell.backgroundImage,
+      panelBackgroundColor: styles.dashboardPanel.backgroundColor,
+    };
+  });
+
+  expect(darkPalette.bodyBackground).toBe("rgb(17, 24, 39)");
+  expect(darkPalette.shellBackgroundImage).toContain("rgb(17, 24, 39)");
+  expect(darkPalette.shellBackgroundImage).toContain("rgb(15, 23, 42)");
+  expect(darkPalette.panelBackgroundColor).toMatch(/rgba\(15, 23, 42, 0\.78\)|color\(srgb 0\.0588235 0\.0901961 0\.164706 \/ 0\.78\)|oklab\([^)]*\/ 0\.78\)/);
+  await expectNoDocumentScroll(page);
+
+  await page.reload();
+  await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
+  await expect(page.getByTestId("theme-switcher")).toHaveAttribute("aria-checked", "true");
   await expectNoDocumentScroll(page);
 });
 
@@ -249,6 +328,20 @@ test("aligns the compact dashboard panel with the expanded report surface on des
   expect(Math.abs(boxes.report.right - boxes.dashboard.right)).toBeLessThanOrEqual(1);
   expect(Math.abs(boxes.report.width - boxes.dashboard.width)).toBeLessThanOrEqual(1);
   expect(boxes.report.height).toBeGreaterThan(boxes.dashboard.height);
+
+  const actionPanel = page.getByTestId("action-panel");
+  await expect(actionPanel.getByText("усі тести")).toHaveCount(0);
+  const actionControls = await page.evaluate(() => {
+    const status = document.querySelector('[data-testid="action-status"]')!.getBoundingClientRect();
+    const button = document.querySelector('[data-testid="action-panel"] button')!.getBoundingClientRect();
+
+    return {
+      status: { width: status.width, height: status.height },
+      button: { width: button.width, height: button.height },
+    };
+  });
+  expect(Math.abs(actionControls.status.width - actionControls.button.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(actionControls.status.height - actionControls.button.height)).toBeLessThanOrEqual(1);
   await expectNoDocumentScroll(page);
 });
 

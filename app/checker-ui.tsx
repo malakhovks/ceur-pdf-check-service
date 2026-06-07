@@ -14,16 +14,21 @@ import {
   ExternalLink,
   FileText,
   GitBranch,
+  Info,
   Languages,
   LoaderCircle,
   LogOut,
+  Moon,
   ShieldCheck,
+  Sun,
   UploadCloud,
+  X,
   XCircle,
 } from "lucide-react";
 
 type Language = "uk" | "en";
 type ReportView = "preview" | "source";
+type Theme = "light" | "dark";
 
 export type SignedInUser = {
   name?: string | null;
@@ -48,7 +53,13 @@ type Translation = {
     title: string;
     subtitle: string;
     github: string;
+    developer: string;
+    info: string;
     language: string;
+    theme: string;
+    lightTheme: string;
+    darkTheme: string;
+    signOut: string;
   };
   upload: {
     eyebrow: string;
@@ -82,6 +93,12 @@ type Translation = {
     preview: string;
     source: string;
   };
+  help: {
+    title: string;
+    intro: string;
+    features: string[];
+    close: string;
+  };
   status: Record<string, string>;
   errors: Record<string, string>;
 };
@@ -93,7 +110,13 @@ const translations: Record<Language, Translation> = {
       title: "CEUR PDF Check",
       subtitle: "Перевірка рукопису для CEUR-WS",
       github: "GitHub",
+      developer: "Розробник",
+      info: "Інфо",
       language: "Мова інтерфейсу",
+      theme: "Тема інтерфейсу",
+      lightTheme: "Світла",
+      darkTheme: "Темна",
+      signOut: "Вийти",
     },
     upload: {
       eyebrow: "Завантаження рукопису",
@@ -126,6 +149,17 @@ const translations: Record<Language, Translation> = {
       viewMode: "Вигляд звіту",
       preview: "Перегляд",
       source: "Код",
+    },
+    help: {
+      title: "Можливості застосунку",
+      intro: "CEUR PDF Check допомагає швидко перевірити рукопис перед поданням до CEUR-WS.",
+      features: [
+        "Завантажуйте PDF, DOCX, DOC або ODT рукописи.",
+        "Запускайте офіційну перевірку CEUR і перевірку списку посилань.",
+        "Читайте Markdown-звіт у режимі перегляду або сирого коду.",
+        "Завантажуйте оригінальний Markdown-звіт з назвою за рукописом.",
+      ],
+      close: "Закрити",
     },
     status: {
       waiting: "Очікування",
@@ -161,7 +195,13 @@ const translations: Record<Language, Translation> = {
       title: "CEUR PDF Check",
       subtitle: "Manuscript validation report generator",
       github: "GitHub",
+      developer: "Developer",
+      info: "Info",
       language: "Interface language",
+      theme: "Interface theme",
+      lightTheme: "Light",
+      darkTheme: "Dark",
+      signOut: "Sign out",
     },
     upload: {
       eyebrow: "Upload manuscript",
@@ -194,6 +234,17 @@ const translations: Record<Language, Translation> = {
       viewMode: "Report view",
       preview: "Preview",
       source: "Source",
+    },
+    help: {
+      title: "App features",
+      intro: "CEUR PDF Check helps validate a manuscript before CEUR-WS submission.",
+      features: [
+        "Upload PDF, DOCX, DOC, or ODT manuscripts.",
+        "Run the official CEUR checker and the rendered reference check.",
+        "Review the Markdown report as rendered preview or raw source.",
+        "Download the original Markdown report with a manuscript-based filename.",
+      ],
+      close: "Close",
     },
     status: {
       waiting: "Waiting",
@@ -246,6 +297,7 @@ const errorTranslations: Record<string, keyof Translation["errors"]> = {
 
 const githubRepoUrl = "https://github.com/malakhovks/ceur-pdf-check-service";
 const developerCreditUrl = "https://linktr.ee/malakhovks";
+const themeStorageKey = "ceur-pdf-check-theme";
 const supportedManuscriptExtensions = [".pdf", ".docx", ".doc", ".odt"];
 const supportedManuscriptMimeTypes = new Set([
   "application/pdf",
@@ -280,13 +332,13 @@ function classNames(...classes: Array<string | false | null | undefined>) {
 
 const markdownComponents: Components = {
   h1({ node, className, ...props }) {
-    return <h1 className={classNames("mb-3 text-xl font-semibold leading-tight text-slate-950", className)} {...props} />;
+    return <h1 className={classNames("mb-3 text-xl font-semibold leading-tight text-heading", className)} {...props} />;
   },
   h2({ node, className, ...props }) {
-    return <h2 className={classNames("mb-2 mt-5 text-lg font-semibold leading-tight text-slate-900", className)} {...props} />;
+    return <h2 className={classNames("mb-2 mt-5 text-lg font-semibold leading-tight text-heading", className)} {...props} />;
   },
   h3({ node, className, ...props }) {
-    return <h3 className={classNames("mb-2 mt-4 text-base font-semibold leading-tight text-slate-900", className)} {...props} />;
+    return <h3 className={classNames("mb-2 mt-4 text-base font-semibold leading-tight text-heading", className)} {...props} />;
   },
   p({ node, className, ...props }) {
     return <p className={classNames("mb-3", className)} {...props} />;
@@ -299,25 +351,25 @@ const markdownComponents: Components = {
   },
   table({ node, className, ...props }) {
     return (
-      <div className="mb-4 overflow-x-auto rounded-[18px] border border-slate-200 bg-white/72">
+      <div className="table-frame mb-4 overflow-x-auto rounded-[18px]">
         <table className={classNames("w-full min-w-[34rem] border-collapse text-left text-sm", className)} {...props} />
       </div>
     );
   },
   thead({ node, className, ...props }) {
-    return <thead className={classNames("bg-white/80 text-xs uppercase text-slate-500", className)} {...props} />;
+    return <thead className={classNames("table-head text-xs uppercase", className)} {...props} />;
   },
   th({ node, className, ...props }) {
-    return <th className={classNames("border-b border-slate-200 px-3 py-2 font-semibold", className)} {...props} />;
+    return <th className={classNames("table-cell-border px-3 py-2 font-semibold", className)} {...props} />;
   },
   td({ node, className, ...props }) {
-    return <td className={classNames("border-b border-slate-100 px-3 py-2 align-top", className)} {...props} />;
+    return <td className={classNames("table-cell-border px-3 py-2 align-top", className)} {...props} />;
   },
   pre({ node, className, ...props }) {
     return <pre className={classNames("mb-4 overflow-x-auto rounded-[18px] bg-slate-950 p-3 text-xs leading-5 text-slate-100", className)} {...props} />;
   },
   code({ node, className, ...props }) {
-    return <code className={classNames("rounded bg-white/80 px-1 py-0.5 font-mono text-[0.85em] text-slate-900", className)} {...props} />;
+    return <code className={classNames("code-inline rounded px-1 py-0.5 font-mono text-[0.85em]", className)} {...props} />;
   },
 };
 
@@ -395,6 +447,9 @@ function translateReport(report: string, language: Language) {
 
 export default function CheckerUi({ user }: { user: SignedInUser }) {
   const [language, setLanguage] = useState<Language>("uk");
+  const [theme, setTheme] = useState<Theme>("light");
+  const [isThemeReady, setIsThemeReady] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState("");
   const [reportFilename, setReportFilename] = useState("");
@@ -407,6 +462,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const [isChecking, setIsChecking] = useState(false);
   const [todayLabel, setTodayLabel] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const helpCloseRef = useRef<HTMLButtonElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestSequenceRef = useRef(0);
 
@@ -419,6 +475,40 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   useEffect(() => {
     document.documentElement.lang = t.locale;
   }, [t.locale]);
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem(themeStorageKey);
+    if (storedTheme === "light" || storedTheme === "dark") {
+      setTheme(storedTheme);
+    }
+    setIsThemeReady(true);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+
+    if (isThemeReady) {
+      window.localStorage.setItem(themeStorageKey, theme);
+    }
+  }, [theme, isThemeReady]);
+
+  useEffect(() => {
+    if (!isHelpOpen) {
+      return;
+    }
+
+    helpCloseRef.current?.focus();
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsHelpOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isHelpOpen]);
 
   useEffect(() => {
     const updateDate = () => setTodayLabel(formatLocalDate(new Date()));
@@ -544,17 +634,17 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   };
 
   const statusTone = status === "pass"
-    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+    ? "status-pill-pass"
     : status === "fail"
-      ? "border-amber-500 bg-amber-100 text-amber-950"
+      ? "status-pill-fail"
       : status === "error"
-        ? "border-rose-200 bg-rose-50 text-rose-950"
-        : "border-slate-200 bg-white text-slate-700";
+        ? "status-pill-error"
+        : "status-pill-neutral";
   const StatusIcon = status === "pass" ? CheckCircle2 : status === "fail" ? AlertTriangle : status === "error" ? XCircle : ShieldCheck;
 
   return (
     <main
-      className="h-[100dvh] overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(184,227,214,0.65),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(255,224,204,0.4),_transparent_24%),linear-gradient(180deg,_#eef4ee_0%,_#e7efe7_52%,_#dde7df_100%)] text-slate-900"
+      className="app-shell h-[100dvh] overflow-hidden"
       data-testid="app-shell"
     >
       <div className="mx-auto flex h-full max-h-[100dvh] max-w-[1840px] min-w-0 flex-col overflow-hidden px-3 py-3 sm:px-5 lg:px-6">
@@ -563,15 +653,15 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
           className="mb-3 flex shrink-0 flex-col gap-3 px-1 pt-1 lg:flex-row lg:items-start lg:justify-between"
         >
           <div className="min-w-0">
-            <h1 className="font-display text-[1.5rem] leading-tight text-slate-950">{t.meta.title}</h1>
-            <p className="mt-1 text-sm text-slate-600 sm:text-base">{t.meta.subtitle}</p>
+            <h1 className="font-display text-[1.5rem] leading-tight text-heading">{t.meta.title}</h1>
+            <p className="mt-1 text-sm text-muted sm:text-base">{t.meta.subtitle}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a
               href={githubRepoUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 text-sm font-semibold text-slate-700 shadow-[0_12px_28px_rgba(30,28,24,0.08)] transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+              className="control-surface inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold transition focus-ring"
             >
               <GitBranch className="h-4 w-4" />
               {t.meta.github}
@@ -581,46 +671,127 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               href={developerCreditUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-9 max-w-full items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 text-sm font-semibold text-slate-700 shadow-[0_12px_28px_rgba(30,28,24,0.08)] transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+              className="control-surface inline-flex h-9 max-w-full items-center gap-2 rounded-full px-3 text-sm font-semibold transition focus-ring"
             >
-              <span>Developer</span>
+              <span>{t.meta.developer}</span>
               <span className="hidden sm:inline">MalakhovKS</span>
-              <span data-testid="developer-credit-date" className="rounded-full bg-white/70 px-2 py-0.5 text-xs text-slate-500">
+              <span data-testid="developer-credit-date" className="date-pill rounded-full px-2 py-0.5 text-xs">
                 {todayLabel || "0000-00-00"}
               </span>
               <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             </a>
-            <div className="inline-flex h-9 items-center gap-1 rounded-full border border-white/70 bg-white/70 p-1 shadow-[0_12px_28px_rgba(30,28,24,0.08)]" role="group" aria-label={t.meta.language}>
-              <Languages className="ml-1 h-4 w-4 text-slate-500" aria-hidden="true" />
+            <button
+              type="button"
+              data-testid="info-button"
+              onClick={() => setIsHelpOpen(true)}
+              className="control-surface inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold transition focus-ring"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+              {t.meta.info}
+            </button>
+            <button
+              type="button"
+              data-testid="theme-switcher"
+              role="switch"
+              aria-checked={theme === "dark"}
+              aria-label={theme === "dark" ? t.meta.lightTheme : t.meta.darkTheme}
+              title={theme === "dark" ? t.meta.lightTheme : t.meta.darkTheme}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className={classNames("theme-toggle focus-ring", theme === "dark" && "theme-toggle-dark")}
+            >
+              <span className="theme-toggle-icon theme-toggle-sun" aria-hidden="true">
+                <Sun className="h-4 w-4" />
+              </span>
+              <span className="theme-toggle-icon theme-toggle-moon" aria-hidden="true">
+                <Moon className="h-4 w-4" />
+              </span>
+              <span className="theme-toggle-thumb" aria-hidden="true" />
+            </button>
+            <div data-testid="language-switcher" className="language-switcher inline-flex h-9 items-center gap-1 rounded-full p-1" role="group" aria-label={t.meta.language}>
+              <Languages className="ml-1 h-4 w-4 text-muted" aria-hidden="true" />
               {(["uk", "en"] as const).map((option) => (
                 <button
                   key={option}
                   type="button"
+                  aria-label={option === "uk" ? "Українська" : "English"}
                   aria-pressed={language === option}
                   onClick={() => setLanguage(option)}
                   className={classNames(
-                    "h-7 rounded-full px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
-                    language === option ? "reference-dark" : "text-slate-700 hover:bg-white/80",
+                    "language-option h-7 rounded-full px-2 text-xs font-semibold leading-none transition focus-ring",
+                    language === option && "language-option-active",
                   )}
                 >
-                  {option === "uk" ? "Українська" : "English"}
+                  {option === "uk" ? "UA" : "EN"}
                 </button>
               ))}
             </div>
-            <div data-testid="signed-in-user" className="inline-flex h-9 max-w-full items-center gap-2 rounded-full border border-white/70 bg-white/70 py-1 pl-3 pr-1 text-sm text-slate-700 shadow-[0_12px_28px_rgba(30,28,24,0.08)]">
+            <div data-testid="signed-in-user" className="control-surface inline-flex h-9 max-w-full items-center gap-2 rounded-full py-1 pl-3 pr-1 text-sm">
               <span className="min-w-0 truncate font-semibold" title={signedInLabel}>{signedInLabel}</span>
-              <span className="hidden text-xs text-slate-500 md:inline" title={signedInDetail}>{signedInDetail}</span>
+              <span className="hidden text-xs text-muted md:inline" title={signedInDetail}>{signedInDetail}</span>
               <button
                 type="button"
                 onClick={() => void signOut({ callbackUrl: "/sign-in" })}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
-                aria-label="Sign out"
+                className="icon-button inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition focus-ring"
+                aria-label={t.meta.signOut}
               >
                 <LogOut className="h-4 w-4" />
               </button>
             </div>
           </div>
         </header>
+
+        {isHelpOpen ? (
+          <div
+            data-testid="info-modal"
+            className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setIsHelpOpen(false);
+              }
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="info-modal-title"
+              className="modal-panel max-h-full w-full max-w-xl overflow-auto rounded-[28px] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase text-muted">{t.meta.info}</p>
+                  <h2 id="info-modal-title" className="mt-1 text-xl font-semibold leading-tight text-heading">{t.help.title}</h2>
+                </div>
+                <button
+                  ref={helpCloseRef}
+                  type="button"
+                  onClick={() => setIsHelpOpen(false)}
+                  className="icon-button inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus-ring"
+                  aria-label={t.help.close}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-body">{t.help.intro}</p>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-body">
+                {t.help.features.map((feature) => (
+                  <li key={feature} className="flex gap-3">
+                    <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsHelpOpen(false)}
+                  className="reference-dark inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-semibold transition focus-ring"
+                >
+                  {t.help.close}
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
 
         <section data-testid="dashboard-panel" className="surface mb-2 max-h-[34dvh] shrink-0 overflow-auto rounded-[30px] px-3 py-2 sm:px-4">
           <div className="grid items-stretch gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,0.78fr)_minmax(15rem,0.58fr)]">
@@ -642,7 +813,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 aria-describedby="upload-support selected-file"
                 className={classNames(
                   "flex h-full min-h-24 w-full flex-col justify-between rounded-[24px] border border-dashed px-3 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
-                  isDragging ? "border-emerald-400 bg-emerald-50" : "border-white/70 bg-white/72 hover:border-emerald-300 hover:bg-white",
+                  isDragging ? "dropzone-active" : "dropzone-surface",
                 )}
                 onClick={() => inputRef.current?.click()}
                 onDragOver={(event) => {
@@ -658,15 +829,15 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               >
                 <span className="flex items-start justify-between gap-4">
                   <span className="min-w-0">
-                    <span className="block text-xs font-semibold uppercase text-slate-500">{t.upload.eyebrow}</span>
-                    <span className="mt-1 block text-base font-semibold text-slate-900">{t.upload.title}</span>
+                    <span className="block text-xs font-semibold uppercase text-muted">{t.upload.eyebrow}</span>
+                    <span className="mt-1 block text-base font-semibold text-heading">{t.upload.title}</span>
                   </span>
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[18px] bg-emerald-50 text-emerald-800">
+                  <span className="dropzone-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[18px]">
                     <UploadCloud className="h-5 w-5" />
                   </span>
                 </span>
-                <span className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-slate-500">
-                  <span id="upload-support" className="inline-flex rounded-full border border-white/70 bg-white/78 px-2 py-1 text-xs font-semibold uppercase text-slate-500">
+                <span className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted">
+                  <span id="upload-support" className="support-badge inline-flex rounded-full px-2 py-1 text-xs font-semibold uppercase">
                     {t.upload.support}
                   </span>
                   <span id="selected-file" className="min-w-0 break-all" title={selectedName}>{selectedName}</span>
@@ -674,49 +845,48 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               </button>
             </div>
 
-            <div data-testid="stats-grid" className="grid grid-cols-2 gap-2 rounded-[24px] border border-white/70 bg-white/55 p-2 sm:grid-cols-4 xl:self-stretch">
-              <div className="rounded-[22px] border border-white/70 bg-white/78 px-2.5 py-2">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-500"><FileText className="h-4 w-4" />{t.stats.file}</div>
-                <div className="mt-1 break-words text-sm font-semibold text-slate-900">{file ? t.stats.ready : t.stats.empty}</div>
-                <div className="mt-1 text-xs text-slate-500">{formatFileSize(file, t)}</div>
+            <div data-testid="stats-grid" className="soft-panel grid grid-cols-2 gap-2 rounded-[24px] p-2 sm:grid-cols-4 xl:self-stretch">
+              <div className="info-card rounded-[22px] px-2.5 py-2">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted"><FileText className="h-4 w-4" />{t.stats.file}</div>
+                <div className="mt-1 break-words text-sm font-semibold text-heading">{file ? t.stats.ready : t.stats.empty}</div>
+                <div className="mt-1 text-xs text-muted">{formatFileSize(file, t)}</div>
               </div>
-              <div className="rounded-[22px] border border-white/70 bg-white/78 px-2.5 py-2" aria-live="polite">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-slate-500"><StatusIcon className="h-4 w-4" />{t.stats.status}</div>
-                <div className="mt-1 break-words text-sm font-semibold text-slate-900">{isChecking ? t.status.running : statusLabel(status, t)}</div>
-                <div className="mt-1 text-xs text-slate-500">{isChecking ? t.stats.activeTests : t.stats.allTests}</div>
+              <div className="info-card rounded-[22px] px-2.5 py-2" aria-live="polite">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted"><StatusIcon className="h-4 w-4" />{t.stats.status}</div>
+                <div className="mt-1 break-words text-sm font-semibold text-heading">{isChecking ? t.status.running : statusLabel(status, t)}</div>
+                <div className="mt-1 text-xs text-muted">{isChecking ? t.stats.activeTests : t.stats.allTests}</div>
               </div>
-              <div className="rounded-[22px] border border-white/70 bg-white/78 px-2.5 py-2">
-                <div className="text-xs font-semibold uppercase text-slate-500">{t.stats.findings}</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">{findingCount ?? t.stats.notAvailable}</div>
+              <div className="info-card rounded-[22px] px-2.5 py-2">
+                <div className="text-xs font-semibold uppercase text-muted">{t.stats.findings}</div>
+                <div className="mt-1 text-sm font-semibold text-heading">{findingCount ?? t.stats.notAvailable}</div>
               </div>
-              <div className="rounded-[22px] border border-white/70 bg-white/78 px-2.5 py-2">
-                <div className="text-xs font-semibold uppercase text-slate-500">{t.stats.exitCode}</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">{exitCode ?? t.stats.notAvailable}</div>
+              <div className="info-card rounded-[22px] px-2.5 py-2">
+                <div className="text-xs font-semibold uppercase text-muted">{t.stats.exitCode}</div>
+                <div className="mt-1 text-sm font-semibold text-heading">{exitCode ?? t.stats.notAvailable}</div>
               </div>
             </div>
 
-            <div data-testid="action-panel" className="flex flex-col justify-between rounded-[24px] border border-white/70 bg-white/55 px-3 py-2 text-slate-900">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={classNames("inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold", statusTone)} aria-live="polite">
+            <div data-testid="action-panel" className="soft-panel flex flex-col justify-between rounded-[24px] px-3 py-2 text-body">
+              <div className="grid gap-2">
+                <span data-testid="action-status" className={classNames("inline-flex h-9 w-full items-center justify-center gap-2 rounded-full border px-4 text-center text-xs font-semibold", statusTone)} aria-live="polite">
                   <StatusIcon className="h-3.5 w-3.5" />
                   {isChecking ? t.status.checking : statusLabel(status, t)}
                 </span>
-                <span className="inline-flex min-h-8 items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700">{t.stats.allTests}</span>
+                <button
+                  type="button"
+                  onClick={runCheck}
+                  disabled={!file || isChecking}
+                  className={classNames(
+                    "inline-flex h-9 w-full items-center justify-center gap-2 rounded-full px-4 text-center text-sm font-semibold leading-tight transition focus-ring",
+                    !file || isChecking ? "reference-disabled" : "reference-dark",
+                  )}
+                >
+                  {isChecking ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {isChecking ? t.actions.checking : t.actions.run}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={runCheck}
-                disabled={!file || isChecking}
-                className={classNames(
-                  "mt-2 inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-4 py-1.5 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
-                  !file || isChecking ? "reference-disabled" : "reference-dark",
-                )}
-              >
-                {isChecking ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                {isChecking ? t.actions.checking : t.actions.run}
-              </button>
               {error ? (
-                <div role="alert" className="mt-2 flex items-start gap-2 rounded-[18px] border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">
+                <div role="alert" className="error-alert mt-2 flex items-start gap-2 rounded-[18px] px-3 py-2 text-sm">
                   <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span className="min-w-0 break-words">{translateError(error, t)}</span>
                 </div>
@@ -729,11 +899,11 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
           <div data-testid="report-surface" className="surface flex min-h-0 min-w-0 flex-col rounded-[30px] p-3 sm:p-4">
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase text-slate-500">{t.report.eyebrow}</p>
-                <h2 className="mt-1 text-base font-semibold text-slate-900 sm:text-lg">{t.report.title}</h2>
+                <p className="text-xs font-semibold uppercase text-muted">{t.report.eyebrow}</p>
+                <h2 className="mt-1 text-base font-semibold text-heading sm:text-lg">{t.report.title}</h2>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex min-h-9 items-center gap-1 rounded-full border border-white/70 bg-white/70 p-1" role="group" aria-label={t.report.viewMode}>
+                <div className="segmented-control inline-flex min-h-9 items-center gap-1 rounded-full p-1" role="group" aria-label={t.report.viewMode}>
                   {([
                     ["preview", t.report.preview, Eye],
                     ["source", t.report.source, Code2],
@@ -744,8 +914,8 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                       aria-pressed={reportView === view}
                       onClick={() => setReportView(view)}
                       className={classNames(
-                        "inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
-                        reportView === view ? "reference-dark" : "text-slate-700 hover:bg-white/80",
+                        "inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-xs font-semibold leading-none transition focus-ring",
+                        reportView === view ? "reference-dark" : "segmented-option",
                       )}
                     >
                       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -758,7 +928,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                   onClick={downloadReport}
                   disabled={!report}
                   className={classNames(
-                    "inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-center text-sm font-semibold leading-tight transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500",
+                    "inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-center text-sm font-semibold leading-tight transition focus-ring",
                     report ? "reference-dark" : "reference-disabled",
                   )}
                 >
@@ -767,18 +937,18 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 </button>
               </div>
             </div>
-            <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-[24px] border border-white/70 bg-[#faf6f0]">
-              <div className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-slate-700" aria-label={t.report.ariaLabel}>
+            <div className="report-frame mt-3 min-h-0 flex-1 overflow-hidden rounded-[24px]">
+              <div className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-report" aria-label={t.report.ariaLabel}>
                 {report ? (
                   reportView === "preview" ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                       {previewReport}
                     </ReactMarkdown>
                   ) : (
-                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-slate-700">{report}</pre>
+                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-report">{report}</pre>
                   )
                 ) : (
-                  <p className="m-0 text-slate-500">{t.report.empty}</p>
+                  <p className="m-0 text-muted">{t.report.empty}</p>
                 )}
               </div>
             </div>
