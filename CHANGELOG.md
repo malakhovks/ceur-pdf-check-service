@@ -4,6 +4,12 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Hardened the dashboard upload dropzone so nested drag movement keeps the
+  active state stable and file selection resets drag highlighting.
+- Added `requestId` values to unauthenticated `/api/check` proxy errors so
+  protected API failures keep the same traceable JSON shape as route errors.
+- Added desktop and mobile Playwright coverage for dropzone drag-state handling
+  and request-id-bearing authentication errors.
 - Added dedicated Playwright concurrency coverage for 2, 4, and 8 authenticated
   `/api/check` document-processing requests using the required ODT, PDF, and
   DOCX manuscript samples.

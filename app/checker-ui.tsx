@@ -505,6 +505,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const helpCloseRef = useRef<HTMLButtonElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const dragDepthRef = useRef(0);
   const requestSequenceRef = useRef(0);
 
   const t = translations[language];
@@ -578,6 +579,8 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
     cancelActiveRequest();
     setError("");
     resetResult();
+    dragDepthRef.current = 0;
+    setIsDragging(false);
 
     if (!candidate) {
       return;
@@ -888,13 +891,25 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                   isDragging ? "dropzone-active" : "dropzone-surface",
                 )}
                 onClick={() => inputRef.current?.click()}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  dragDepthRef.current += 1;
+                  setIsDragging(true);
+                }}
                 onDragOver={(event) => {
                   event.preventDefault();
                   setIsDragging(true);
                 }}
-                onDragLeave={() => setIsDragging(false)}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+                  dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+                  if (dragDepthRef.current === 0) {
+                    setIsDragging(false);
+                  }
+                }}
                 onDrop={(event) => {
                   event.preventDefault();
+                  dragDepthRef.current = 0;
                   setIsDragging(false);
                   selectFile(event.dataTransfer.files[0]);
                 }}

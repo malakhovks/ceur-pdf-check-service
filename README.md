@@ -23,8 +23,9 @@ Stop the service:
 docker compose --env-file .env down
 ```
 
-Sign in with Google, upload a PDF, DOCX, DOC, or ODT manuscript, run the check,
-read the generated Markdown report, and download `report_<manuscript-stem>.md`,
+Sign in with Google, upload or drag-and-drop a PDF, DOCX, DOC, or ODT
+manuscript, run the check, read the generated Markdown report, and download
+`report_<manuscript-stem>.md`,
 for example `report_paper.md`. The report panel renders Markdown by default and
 includes a preview/source switcher. Ukrainian preview localizes report
 headings/metadata for reading, while source mode and downloads keep the raw
@@ -37,14 +38,17 @@ Reference mistake repair, and the ChatGPT prompt workflow in Ukrainian and
 English. The theme choice is stored in the browser and the header switchers
 avoid full visible labels while keeping accessible names. The dashboard
 localizes checker/API errors in Ukrainian and English, including upload parsing,
-queue, timeout, and missing report failures.
+queue, timeout, and missing report failures. Unauthenticated protected API errors
+include a `requestId` for consistent troubleshooting across proxy and route
+responses.
 
 It keeps the fixed-shell layout with a compact control panel, an enlarged
 full-width report workspace, and internal scrolling for long reports and
-compact mobile viewports. The notes panel has been removed so the report
-remains the primary workspace. The dashboard and `/api/check` require an
-authenticated Google session; `/api/health` stays public for Docker health
-checks.
+compact mobile viewports. The upload dropzone preserves its active state during
+nested drag movement and clears the highlight after file selection. The notes
+panel has been removed so the report remains the primary workspace. The
+dashboard and `/api/check` require an authenticated Google session; `/api/health`
+stays public for Docker health checks.
 
 The Info modal links to `/ceur_ws_reference_prompt.md`, served from
 `public/ceur_ws_reference_prompt.md`. To generate CEUR-WS references, download
@@ -206,9 +210,11 @@ docker compose --env-file .env down
 The e2e suite authenticates with the disabled-by-default test provider. Enable
 it only for local or CI verification by setting `AUTH_TEST_MODE=true` and
 `AUTH_TEST_LOGIN_TOKEN` on the app container before running Playwright. The
-web tests cover authentication, localized server-side error handling, fixed-shell
-layout, compact dashboard/report alignment, compact viewport reachability, the
-Info modal Reference guidance and prompt download link, persisted dark theme,
+web tests cover authentication, request-id-bearing protected API errors,
+localized server-side error handling, fixed-shell layout, compact
+dashboard/report alignment, compact viewport reachability, stable upload
+dropzone drag state, Info modal Reference guidance and prompt download link,
+persisted dark theme,
 wordless header switchers, rendered Markdown reports, source-mode Markdown, raw
 report downloads with analyzed-file-based filenames, internal report scrolling,
 stale response handling, supported manuscript selection, converted-manuscript

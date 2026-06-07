@@ -111,6 +111,7 @@ test("rejects checker API requests without a session", async ({ request }) => {
 
   expect(response.status()).toBe(401);
   await expect(response.json()).resolves.toEqual(expect.objectContaining({
+    requestId: expect.any(String),
     status: "error",
     error: "Authentication required.",
   }));
@@ -370,6 +371,29 @@ test("keeps dashboard controls reachable on short mobile viewports", async ({ pa
 
   await expect(page.getByRole("button", { name: "Запустити перевірку" })).toBeInViewport();
   await expectNoDocumentScroll(page);
+});
+
+test("keeps the dropzone active during nested drag movement", async ({ page }) => {
+  await page.goto("/");
+
+  const dropzone = page.getByTestId("upload-dropzone");
+  await expect(dropzone).toHaveClass(/dropzone-surface/);
+
+  await dropzone.dispatchEvent("dragenter");
+  await expect(dropzone).toHaveClass(/dropzone-active/);
+
+  await dropzone.dispatchEvent("dragenter");
+  await dropzone.dispatchEvent("dragleave");
+  await expect(dropzone).toHaveClass(/dropzone-active/);
+
+  await dropzone.dispatchEvent("dragleave");
+  await expect(dropzone).toHaveClass(/dropzone-surface/);
+
+  await dropzone.dispatchEvent("dragenter");
+  await expect(dropzone).toHaveClass(/dropzone-active/);
+  await page.locator("input[type=\"file\"]").setInputFiles(pdfFixture("drag-reset.pdf"));
+  await expect(page.getByText("drag-reset.pdf")).toBeVisible();
+  await expect(dropzone).toHaveClass(/dropzone-surface/);
 });
 
 test("rejects unsupported manuscript selections with localized errors", async ({ page }) => {

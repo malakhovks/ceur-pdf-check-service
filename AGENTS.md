@@ -17,10 +17,10 @@ official CEUR-WS `check-pdf-errors` checker.
 - `bin/ceur-reference-check` is the Python helper that extracts rendered PDF text
   with Poppler and validates CEURART-style numbered reference sections.
 - `app/` contains the Next.js App Router UI, Auth.js routes, health/check API
-  routes, sign-in page, protected compact dashboard, enlarged localized Info
-  modal with Reference repair guidance and prompt download, persisted theme
-  controls, compact language controls, and full-width rendered/source Markdown
-  report panel.
+  routes, sign-in page, protected compact dashboard, resilient drag-and-drop
+  upload control, enlarged localized Info modal with Reference repair guidance
+  and prompt download, persisted theme controls, compact language controls, and
+  full-width rendered/source Markdown report panel.
 - `auth.ts` configures Auth.js Google Sign-In, JWT sessions, and disabled-by-
   default test authentication. `proxy.ts` protects the dashboard and `/api/check`.
 - `tests/` contains Playwright UI/API tests, dedicated concurrent processing
@@ -133,17 +133,18 @@ and optional `index.html` or `watermark-log.txt` companions.
 
 For web or API changes, rebuild with Docker Compose and run Playwright in
 `mcr.microsoft.com/playwright:v1.60.0-noble`. Keep `/api/health` public and
-verify unauthenticated `/api/check` requests return `401`. For queue or
-concurrent-processing changes, run `tests/concurrent-processing.spec.ts` with
+verify unauthenticated `/api/check` requests return `401` with a `requestId`
+for traceable proxy-originated errors. For queue or concurrent-processing
+changes, run `tests/concurrent-processing.spec.ts` with
 `CEUR_QUEUE_TIMEOUT_MS=600000` and verify it uses `CEUR-Template-1col.odt`, the
 sample PDF, and the sample DOCX at 2, 4, and 8 concurrent requests. For
 dashboard layout changes, preserve the no-document-scroll app shell, compact
-scrollable controls,
-equal dashboard/report widths, and the enlarged report surface. Verify compact
-viewports use internal scrolling for controls and report content. For header
-control changes, verify the Info modal, Reference repair guidance, ChatGPT
-prompt instructions, prompt download link, persisted dark/light theme, wordless
-theme switcher, compact `UA`/`EN` language switcher, localized developer credit,
+scrollable controls, equal dashboard/report widths, the enlarged report surface,
+and stable upload dropzone drag highlighting during nested drag movement.
+Verify compact viewports use internal scrolling for controls and report
+content. For header control changes, verify the Info modal, Reference repair
+guidance, ChatGPT prompt instructions, prompt download link,
+persisted dark/light theme, wordless theme switcher, compact `UA`/`EN` language switcher, localized developer credit,
 and accessible labels in both Ukrainian and English. For report rendering
 changes, verify both rendered Markdown preview and raw source mode. For API error
 changes, verify localized server-side errors in both Ukrainian and English. For

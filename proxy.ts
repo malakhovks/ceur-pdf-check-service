@@ -7,7 +7,10 @@ export const proxy = auth((request) => {
 
   if (pathname.startsWith("/api/check")) {
     if (!isSignedIn) {
-      return NextResponse.json({ status: "error", error: "Authentication required." }, { status: 401 });
+      return NextResponse.json(
+        { requestId: crypto.randomUUID(), status: "error", error: "Authentication required." },
+        { status: 401 },
+      );
     }
 
     return NextResponse.next();
