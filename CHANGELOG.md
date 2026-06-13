@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Redesigned the compact `UA`/`EN` language control as a single accessible pill
+  switch that matches the theme switcher sizing and sliding-thumb interaction.
+- Added Playwright coverage for the language switch role, checked state,
+  compact labels, and size parity with the theme switcher.
 - Hardened the dashboard upload dropzone so nested drag movement keeps the
   active state stable and file selection resets drag highlighting.
 - Added `requestId` values to unauthenticated `/api/check` proxy errors so

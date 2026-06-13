@@ -57,7 +57,7 @@ function sampleReport(extraRaw = "WARNING: raw English output") {
 }
 
 async function switchToEnglish(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "English" }).click();
+  await page.getByTestId("language-switcher").click();
 }
 
 async function expectNoDocumentScroll(page: import("@playwright/test").Page) {
@@ -122,6 +122,7 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
 
   const header = page.getByTestId("dashboard-header");
   const themeSwitcher = header.getByTestId("theme-switcher");
+  const languageSwitcher = header.getByTestId("language-switcher");
   const dashboardHeading = page.getByRole("heading", { name: "CEUR PDF Check" });
   await expect(dashboardHeading).toBeVisible();
   await expect.poll(async () => dashboardHeading.evaluate((element) => getComputedStyle(element).fontSize)).toBe("24px");
@@ -136,9 +137,11 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await expect(page.getByRole("button", { name: "Інфо" })).toBeVisible();
   await expect(themeSwitcher).toHaveAttribute("role", "switch");
   await expect(themeSwitcher).toHaveAttribute("aria-checked", "false");
-  await expect(header.getByRole("button", { name: "Українська" })).toHaveAttribute("aria-pressed", "true");
-  await expect(header.getByRole("button", { name: "Українська" })).toHaveText("UA");
-  await expect(header.getByRole("button", { name: "English" })).toHaveText("EN");
+  await expect(languageSwitcher).toHaveAttribute("role", "switch");
+  await expect(languageSwitcher).toHaveAttribute("aria-checked", "false");
+  await expect(languageSwitcher).toHaveAttribute("aria-label", "English");
+  await expect(languageSwitcher.getByText("UA", { exact: true })).toBeVisible();
+  await expect(languageSwitcher.getByText("EN", { exact: true })).toBeVisible();
   await expect(header.getByText("Світла", { exact: true })).toHaveCount(0);
   await expect(header.getByText("Темна", { exact: true })).toHaveCount(0);
   await expect(header.getByText("Українська", { exact: true })).toHaveCount(0);
@@ -156,9 +159,10 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await expect(page.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByRole("button", { name: "Info" })).toBeVisible();
   await expect(themeSwitcher).toHaveAttribute("aria-checked", "false");
-  await expect(header.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
-  await expect(header.getByRole("button", { name: "Українська" })).toHaveText("UA");
-  await expect(header.getByRole("button", { name: "English" })).toHaveText("EN");
+  await expect(languageSwitcher).toHaveAttribute("aria-checked", "true");
+  await expect(languageSwitcher).toHaveAttribute("aria-label", "Українська");
+  await expect(languageSwitcher.getByText("UA", { exact: true })).toBeVisible();
+  await expect(languageSwitcher.getByText("EN", { exact: true })).toBeVisible();
   await expect(header.getByText("Light", { exact: true })).toHaveCount(0);
   await expect(header.getByText("Dark", { exact: true })).toHaveCount(0);
   await expect(header.getByText("Українська", { exact: true })).toHaveCount(0);
@@ -297,6 +301,19 @@ test("uses reference dashboard colors and rounded forms", async ({ page }) => {
   expect(palette.dropzoneBackgroundColor).toMatch(/rgba\(255, 255, 255, 0\.72\)|color\(srgb 1 1 1 \/ 0\.72\)|oklab\([^)]*\/ 0\.72\)/);
   expect(palette.dropzoneBorderColor).toMatch(/rgba\(255, 255, 255, 0\.7\)|color\(srgb 1 1 1 \/ 0\.7\)|oklab\([^)]*\/ 0\.7\)/);
   expect(parseFloat(palette.dropzoneBorderRadius)).toBeGreaterThanOrEqual(24);
+
+  const switchMetrics = await page.evaluate(() => {
+    const theme = document.querySelector('[data-testid="theme-switcher"]')!.getBoundingClientRect();
+    const language = document.querySelector('[data-testid="language-switcher"]')!.getBoundingClientRect();
+
+    return {
+      theme: { width: theme.width, height: theme.height },
+      language: { width: language.width, height: language.height },
+    };
+  });
+
+  expect(Math.abs(switchMetrics.theme.width - switchMetrics.language.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(switchMetrics.theme.height - switchMetrics.language.height)).toBeLessThanOrEqual(1);
 
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("styled.pdf"));
   const runButton = page.getByRole("button", { name: "Запустити перевірку" });

@@ -19,8 +19,8 @@ official CEUR-WS `check-pdf-errors` checker.
 - `app/` contains the Next.js App Router UI, Auth.js routes, health/check API
   routes, sign-in page, protected compact dashboard, resilient drag-and-drop
   upload control, enlarged localized Info modal with Reference repair guidance
-  and prompt download, persisted theme controls, compact language controls, and
-  full-width rendered/source Markdown report panel.
+  and prompt download, persisted theme controls, matched compact theme/language
+  pill switchers, and full-width rendered/source Markdown report panel.
 - `auth.ts` configures Auth.js Google Sign-In, JWT sessions, and disabled-by-
   default test authentication. `proxy.ts` protects the dashboard and `/api/check`.
 - `tests/` contains Playwright UI/API tests, dedicated concurrent processing
@@ -115,10 +115,10 @@ still save raw Markdown source and use analyzed-file-based names such as
 above an equal-width, full-width report surface, no notes surface, and no
 document scroll. Header controls should preserve the localized Info modal,
 Reference repair guidance, static `ceur_ws_reference_prompt.md` download link,
-localStorage-backed light/dark theme switcher, compact `UA`/`EN` language
-switcher, localized developer credit, and accessible labels even when visible
-labels are intentionally short. When backend error strings change, update the
-client `errorTranslations` map and Ukrainian/English copy together so
+localStorage-backed light/dark theme switcher, matching compact `UA`/`EN`
+language switcher, localized developer credit, and accessible labels even when
+visible labels are intentionally short. When backend error strings change,
+update the client `errorTranslations` map and Ukrainian/English copy together so
 server-origin failures remain localized.
 
 ## Testing Guidelines
@@ -144,8 +144,10 @@ and stable upload dropzone drag highlighting during nested drag movement.
 Verify compact viewports use internal scrolling for controls and report
 content. For header control changes, verify the Info modal, Reference repair
 guidance, ChatGPT prompt instructions, prompt download link,
-persisted dark/light theme, wordless theme switcher, compact `UA`/`EN` language switcher, localized developer credit,
-and accessible labels in both Ukrainian and English. For report rendering
+persisted dark/light theme, wordless theme switcher, compact `UA`/`EN` language
+switcher, localized developer credit, `role="switch"` and `aria-checked`
+semantics, theme/language switcher size parity, and accessible labels in both
+Ukrainian and English. For report rendering
 changes, verify both rendered Markdown preview and raw source mode. For API error
 changes, verify localized server-side errors in both Ukrainian and English. For
 report download changes, verify both raw Markdown content and the suggested

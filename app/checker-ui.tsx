@@ -15,7 +15,6 @@ import {
   FileText,
   GitBranch,
   Info,
-  Languages,
   LoaderCircle,
   LogOut,
   Moon,
@@ -751,24 +750,20 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               </span>
               <span className="theme-toggle-thumb" aria-hidden="true" />
             </button>
-            <div data-testid="language-switcher" className="language-switcher inline-flex h-9 items-center gap-1 rounded-full p-1" role="group" aria-label={t.meta.language}>
-              <Languages className="ml-1 h-4 w-4 text-muted" aria-hidden="true" />
-              {(["uk", "en"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-label={option === "uk" ? "Українська" : "English"}
-                  aria-pressed={language === option}
-                  onClick={() => setLanguage(option)}
-                  className={classNames(
-                    "language-option h-7 rounded-full px-2 text-xs font-semibold leading-none transition focus-ring",
-                    language === option && "language-option-active",
-                  )}
-                >
-                  {option === "uk" ? "UA" : "EN"}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              data-testid="language-switcher"
+              role="switch"
+              aria-checked={language === "en"}
+              aria-label={language === "uk" ? "English" : "Українська"}
+              title={language === "uk" ? "English" : "Українська"}
+              onClick={() => setLanguage(language === "uk" ? "en" : "uk")}
+              className={classNames("language-switcher focus-ring", language === "en" && "language-switcher-en")}
+            >
+              <span className="language-switcher-option" aria-hidden="true">UA</span>
+              <span className="language-switcher-option" aria-hidden="true">EN</span>
+              <span className="language-switcher-thumb" aria-hidden="true" />
+            </button>
             <div data-testid="signed-in-user" className="control-surface inline-flex h-9 max-w-full items-center gap-2 rounded-full py-1 pl-3 pr-1 text-sm">
               <span className="min-w-0 truncate font-semibold" title={signedInLabel}>{signedInLabel}</span>
               <span className="hidden text-xs text-muted md:inline" title={signedInDetail}>{signedInDetail}</span>

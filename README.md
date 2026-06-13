@@ -32,13 +32,13 @@ headings/metadata for reading, while source mode and downloads keep the raw
 Markdown emitted by the checker.
 
 The dashboard header includes project links, localized developer credit, a
-localized Info modal, a persisted light/dark theme switcher, and compact
-`UA`/`EN` language controls. The larger Info modal explains supported checks,
-Reference mistake repair, and the ChatGPT prompt workflow in Ukrainian and
-English. The theme choice is stored in the browser and the header switchers
-avoid full visible labels while keeping accessible names. The dashboard
-localizes checker/API errors in Ukrainian and English, including upload parsing,
-queue, timeout, and missing report failures. Unauthenticated protected API errors
+localized Info modal, a persisted light/dark theme switcher, and a matching
+compact `UA`/`EN` language switcher. The larger Info modal explains supported
+checks, Reference mistake repair, and the ChatGPT prompt workflow in Ukrainian
+and English. The theme choice is stored in the browser and both pill-style
+header switchers avoid full visible labels while keeping accessible names. The
+dashboard localizes checker/API errors in Ukrainian and English, including
+upload parsing, queue, timeout, and missing report failures. Unauthenticated protected API errors
 include a `requestId` for consistent troubleshooting across proxy and route
 responses.
 
@@ -214,12 +214,11 @@ web tests cover authentication, request-id-bearing protected API errors,
 localized server-side error handling, fixed-shell layout, compact
 dashboard/report alignment, compact viewport reachability, stable upload
 dropzone drag state, Info modal Reference guidance and prompt download link,
-persisted dark theme,
-wordless header switchers, rendered Markdown reports, source-mode Markdown, raw
-report downloads with analyzed-file-based filenames, internal report scrolling,
-stale response handling, supported manuscript selection, converted-manuscript
-regressions, real PDF checks, and dedicated 2/4/8 concurrent
-document-processing requests.
+persisted dark theme, matched theme/language switch semantics and sizing,
+rendered Markdown reports, source-mode Markdown, raw report downloads with
+analyzed-file-based filenames, internal report scrolling, stale response
+handling, supported manuscript selection, converted-manuscript regressions,
+real PDF checks, and dedicated 2/4/8 concurrent document-processing requests.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.
