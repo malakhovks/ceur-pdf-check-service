@@ -10,6 +10,9 @@ official CEUR-WS `check-pdf-errors` checker.
   serves it on port `3000`.
 - `docker-compose.yml` builds/runs the web service, exposes `${APP_PORT:-3000}`,
   and passes Auth.js, Google OAuth, and checker queue env.
+- `next.config.ts` enables standalone output and raises the Next.js proxy
+  upload body cap above the app's 30 MB manuscript limit so valid large
+  uploads reach `/api/check`.
 - `bin/ceur-pdf-check` is the Bash CLI. It validates arguments, accepts PDF,
   DOCX, DOC, and ODT manuscripts, converts office formats with LibreOffice in a
   separate scratch directory, runs CEUR checks and the reference checker, and
@@ -134,11 +137,15 @@ and optional `index.html` or `watermark-log.txt` companions.
 For web or API changes, rebuild with Docker Compose and run Playwright in
 `mcr.microsoft.com/playwright:v1.60.0-noble`. Keep `/api/health` public and
 verify unauthenticated `/api/check` requests return `401` with a `requestId`
-for traceable proxy-originated errors. For queue or concurrent-processing
-changes, run `tests/concurrent-processing.spec.ts` with
-`CEUR_QUEUE_TIMEOUT_MS=600000` and verify it uses `CEUR-Template-1col.odt`, the
-sample PDF, and the sample DOCX at 2, 4, and 8 concurrent requests. For
-dashboard layout changes, preserve the no-document-scroll app shell, compact
+for traceable proxy-originated errors. For upload/request handling changes,
+verify a valid PDF larger than 10 MB but below 30 MB, such as local `1111.pdf`
+when available, reaches checker processing instead of failing multipart parsing.
+For queue or concurrent-processing changes, run
+`tests/concurrent-processing.spec.ts` with `CEUR_QUEUE_TIMEOUT_MS=600000` and
+`--project=chromium`; verify it uses `CEUR-Template-1col.odt`, the sample PDF,
+and the sample DOCX at 2, 4, and 8 concurrent requests without duplicating load
+across desktop and mobile projects.
+For dashboard layout changes, preserve the no-document-scroll app shell, compact
 scrollable controls, equal dashboard/report widths, the enlarged report surface,
 and stable upload dropzone drag highlighting during nested drag movement.
 Verify compact viewports use internal scrolling for controls and report

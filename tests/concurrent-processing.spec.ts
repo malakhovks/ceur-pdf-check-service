@@ -82,6 +82,7 @@ async function readResponse(response: APIResponse) {
 }
 
 test("processes required manuscripts under 2, 4, and 8 concurrent API requests", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium", "Concurrent API load runs once against the shared checker queue.");
   test.setTimeout(30 * 60_000);
 
   await signInForTests(page);

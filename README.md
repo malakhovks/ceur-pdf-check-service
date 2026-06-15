@@ -40,7 +40,9 @@ header switchers avoid full visible labels while keeping accessible names. The
 dashboard localizes checker/API errors in Ukrainian and English, including
 upload parsing, queue, timeout, and missing report failures. Unauthenticated protected API errors
 include a `requestId` for consistent troubleshooting across proxy and route
-responses.
+responses. The Next.js proxy upload body cap is configured above the app's
+30 MB manuscript limit, so valid larger PDFs such as `1111.pdf` reach the
+checker instead of failing during multipart parsing.
 
 It keeps the fixed-shell layout with a compact control panel, an enlarged
 full-width report workspace, and internal scrolling for long reports and
@@ -151,7 +153,8 @@ Successful queue-drain coverage lives in `tests/concurrent-processing.spec.ts`.
 Start the app with test authentication and a longer queue timeout such as
 `CEUR_QUEUE_TIMEOUT_MS=600000`, then run the spec in the required Playwright
 image to submit the required ODT, PDF, and DOCX manuscripts in 2-, 4-, and
-8-request batches:
+8-request batches. Run this load test on Chromium only because it exercises the
+shared backend checker queue:
 
 ```bash
 docker run --rm --network host \

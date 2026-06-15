@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Fixed valid web uploads larger than Next.js default 10 MB body handling, including `1111.pdf`, by configuring the proxy upload cap above the app's 30 MB manuscript limit.
+- Kept the dedicated concurrent-processing Playwright load test on Chromium only so the desktop and mobile projects do not duplicate load against the same checker queue.
 - Redesigned the compact `UA`/`EN` language control as a single accessible pill
   switch that matches the theme switcher sizing and sliding-thumb interaction.
 - Added Playwright coverage for the language switch role, checked state,
