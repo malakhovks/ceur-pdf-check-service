@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""Detect rendered non-Libertinus alphabetic text in CEUR PDFs."""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+try:
+  from pdfminer.high_level import extract_pages
+  from pdfminer.layout import LTChar
+except ImportError:  # pragma: no cover - exercised in the container image.
+  extract_pages = None
+  LTChar = None
+
+
+MAX_EVIDENCE_PER_FILE = 5
+CONTEXT_CHARS = 70
+
+
+@dataclass(frozen=True)
+class RenderedChar:
+  text: str
+  font: str
+  page: int
+
+
+@dataclass(frozen=True)
+class FontEvidence:
+  page: int
+  font: str
+  text: str
+  context: str
+
+
+def walk_layout(item: object) -> Iterable[object]:
+  if LTChar is not None and isinstance(item, LTChar):
+    yield item
+    return
+
+  if hasattr(item, "__iter__"):
+    for child in item:  # type: ignore[operator]
+      yield from walk_layout(child)
+
+
+def normalize_font_name(font: str) -> str:
+  base = font.split("+", 1)[-1]
+  return re.sub(r"[^a-z0-9]", "", base.lower())
+
+
+def display_font_name(font: str) -> str:
+  return font.split("+", 1)[-1]
+
+
+def is_allowed_font(font: str) -> bool:
+  normalized = normalize_font_name(font)
+  if "libertinus" in normalized:
+    return True
+
+  # Formula glyphs are commonly mapped to a separate math/symbol font. They are
+  # not evidence that body text or headings use the wrong font family.
+  math_markers = ("math", "symbol", "dingbats", "zapf")
+  return any(marker in normalized for marker in math_markers)
+
+
+def has_reportable_text(text: str, font: str) -> bool:
+  words = re.findall(r"[^\W\d_]{2,}", text, re.UNICODE)
+  if not words:
+    return False
+
+  compact = compact_text(text, 200)
+  has_internal_space = any(char.isspace() for char in compact)
+
+  punctuation_count = len(re.findall(r"[\d_:/=(){}\[\],.;<>+*\-]", compact))
+  alpha_count = sum(len(word) for word in words)
+
+  # Dense formula/code tokens can carry boundary whitespace from PDF extraction.
+  # Suppress them before accepting spaced runs as body text evidence.
+  if punctuation_count and punctuation_count >= max(2, alpha_count // 4):
+    return False
+
+  if has_internal_space or text != text.strip():
+    return True
+
+  normalized_font = normalize_font_name(font)
+  if "italic" in normalized_font or "oblique" in normalized_font:
+    return False
+
+  return alpha_count >= 12
+
+
+def compact_text(text: str, limit: int) -> str:
+  normalized = re.sub(r"\s+", " ", text).strip()
+  if len(normalized) <= limit:
+    return normalized
+  return f"{normalized[:limit - 1].rstrip()}..."
+
+
+def quote_text(text: str, limit: int = 96) -> str:
+  compact = compact_text(text, limit)
+  return compact.replace('"', "'")
+
+
+def inspect_pdf(path: Path) -> list[FontEvidence]:
+  if extract_pages is None:
+    raise RuntimeError("python3-pdfminer is not available")
+
+  evidence: list[FontEvidence] = []
+  for page_index, page in enumerate(extract_pages(path), start=1):
+    chars = [
+      RenderedChar(char.get_text(), char.fontname, page_index)
+      for char in walk_layout(page)
+      if LTChar is not None and isinstance(char, LTChar)
+    ]
+
+    run_start = 0
+    while run_start < len(chars):
+      run_font = chars[run_start].font
+      run_end = run_start + 1
+      while run_end < len(chars) and chars[run_end].font == run_font:
+        run_end += 1
+
+      run_text = "".join(char.text for char in chars[run_start:run_end])
+      if not is_allowed_font(run_font) and has_reportable_text(run_text, run_font):
+        context_start = max(0, run_start - CONTEXT_CHARS)
+        context_end = min(len(chars), run_end + CONTEXT_CHARS)
+        context = "".join(char.text for char in chars[context_start:context_end])
+        evidence.append(FontEvidence(
+          page=page_index,
+          font=display_font_name(run_font),
+          text=run_text,
+          context=context,
+        ))
+
+      run_start = run_end
+
+  return evidence
+
+
+def print_pdf_result(path: Path, evidence: list[FontEvidence], include_evidence: bool = False) -> None:
+  if not evidence:
+    return
+
+  print(f"PDF file {path.name} seems not use Libertinus Serif font for body text and Libertinus Sans font for headings")
+  if not include_evidence:
+    return
+
+  for item in evidence[:MAX_EVIDENCE_PER_FILE]:
+    rendered = quote_text(item.text, 48)
+    context = quote_text(item.context)
+    print(f" --> Page {item.page}: font {item.font} renders \"{rendered}\" in \"{context}\"")
+
+
+def parse_args() -> argparse.Namespace:
+  parser = argparse.ArgumentParser(
+    description="Detect rendered non-Libertinus alphabetic text in CEUR PDFs.",
+  )
+  parser.add_argument(
+    "--evidence",
+    action="store_true",
+    help="Include debug evidence lines for each detected non-Libertinus run.",
+  )
+  parser.add_argument("pdfs", nargs="+", help="PDF files to inspect.")
+  return parser.parse_args()
+
+
+def main() -> int:
+  args = parse_args()
+  had_errors = False
+  had_findings = False
+
+  for value in args.pdfs:
+    path = Path(value)
+    if not path.is_file():
+      print(f"WARNING: Supplemental font checker cannot read PDF file {value}.")
+      had_errors = True
+      continue
+
+    try:
+      evidence = inspect_pdf(path)
+    except Exception as error:  # noqa: BLE001 - report parser needs a stable line.
+      print(f"WARNING: Supplemental font checker cannot inspect {path.name}: {error}.")
+      had_errors = True
+      continue
+
+    if evidence:
+      had_findings = True
+      print_pdf_result(path, evidence, include_evidence=args.evidence)
+
+  if had_findings:
+    return 1
+  if had_errors:
+    return 2
+  return 0
+
+
+if __name__ == "__main__":
+  sys.exit(main())

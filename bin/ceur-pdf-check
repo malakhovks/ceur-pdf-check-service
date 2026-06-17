@@ -4,7 +4,7 @@ set -uo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ceur-pdf-check INPUT [--output REPORT.md] [--tests TESTS] [--reference-json-output REFERENCES.json]
+  ceur-pdf-check INPUT [--output REPORT.md] [--tests TESTS] [--reference-json-output REFERENCES.json] [--font-evidence]
 
 INPUT may be a single PDF, DOCX, DOC, or ODT manuscript file or a directory containing supported manuscript files.
 
@@ -13,6 +13,7 @@ Options:
   -t, --tests TESTS       CEUR test set to run. Defaults to all.
   --reference-json-output REFERENCES.json
                            Write structured reference extraction data for API repair features.
+  --font-evidence          Include supplemental font evidence lines in the Markdown report.
   -h, --help              Show this help.
 
 Examples:
@@ -150,6 +151,7 @@ INPUT=""
 OUTPUT=""
 TESTS="all"
 REFERENCE_JSON_OUTPUT=""
+FONT_EVIDENCE="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -180,6 +182,10 @@ while [[ $# -gt 0 ]]; do
       fi
       REFERENCE_JSON_OUTPUT="$2"
       shift 2
+      ;;
+    --font-evidence)
+      FONT_EVIDENCE="true"
+      shift
       ;;
     --)
       shift
@@ -261,6 +267,11 @@ if ! command -v check-pdf-errors >/dev/null 2>&1; then
   exit 2
 fi
 
+if ! command -v ceur-font-check >/dev/null 2>&1; then
+  error "ceur-font-check is not available on PATH"
+  exit 2
+fi
+
 WORKDIR="$(mktemp -d)" || {
   error "cannot create temporary work directory"
   exit 2
@@ -273,6 +284,8 @@ CONVERSION_ROOT="$(mktemp -d)" || {
 RAW_LOG="$WORKDIR/check-pdf-errors.raw.log"
 CLEAN_LOG="$WORKDIR/check-pdf-errors.clean.log"
 FINDINGS="$WORKDIR/findings.log"
+FONT_REPORT="$WORKDIR/font-check.log"
+FONT_FINDINGS="$WORKDIR/font-findings.log"
 REFERENCE_REPORT="$WORKDIR/reference-check.md"
 REFERENCE_JSON="$WORKDIR/reference-check.json"
 REFERENCE_ERRORS="$WORKDIR/reference-errors.log"
@@ -324,8 +337,24 @@ perl -pe 's/\r/\n/g' "$RAW_LOG" > "$CLEAN_LOG"
 FINDING_PATTERN='^(PDF file |Error: |ERROR | ==========>| ===>| --> |WARNING:|Can.t open |No file with filetype|Unexpected error)'
 grep -E "$FINDING_PATTERN" "$CLEAN_LOG" > "$FINDINGS" || true
 
-FINDING_COUNT="$(wc -l < "$FINDINGS" | tr -d ' ')"
 mapfile -t PDF_FILES < "$INPUT_LIST"
+FONT_CHECK_ARGS=()
+if [[ "$FONT_EVIDENCE" == "true" ]]; then
+  FONT_CHECK_ARGS+=(--evidence)
+fi
+(
+  cd "$WORKDIR" || exit 1
+  ceur-font-check "${FONT_CHECK_ARGS[@]}" -- "${PDF_FILES[@]}"
+) > "$FONT_REPORT" 2>&1
+
+grep -E "$FINDING_PATTERN" "$FONT_REPORT" > "$FONT_FINDINGS" || true
+while IFS= read -r font_finding; do
+  if ! grep -Fxq "$font_finding" "$FINDINGS"; then
+    printf '%s\n' "$font_finding" >> "$FINDINGS"
+  fi
+done < "$FONT_FINDINGS"
+FINDING_COUNT="$(wc -l < "$FINDINGS" | tr -d ' ')"
+
 (
   cd "$WORKDIR" || exit 1
   ceur-reference-check --json-output "$REFERENCE_JSON" -- "${PDF_FILES[@]}"

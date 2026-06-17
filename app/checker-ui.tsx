@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
@@ -58,6 +58,7 @@ type CheckResponse = {
 
 type StoredSettings = {
   automaticReferenceFix: boolean;
+  fontEvidence: boolean;
 };
 
 type StoredAnalysis = {
@@ -137,6 +138,8 @@ type Translation = {
     settingsTitle: string;
     automaticReferenceFix: string;
     automaticReferenceFixDescription: string;
+    fontEvidence: string;
+    fontEvidenceDescription: string;
     referenceTitle: string;
     referenceIntro: string;
     referenceFixes: string[];
@@ -218,6 +221,8 @@ const translations: Record<Language, Translation> = {
       settingsTitle: "Параметри перевірки",
       automaticReferenceFix: "Автоматичне виправлення літератури",
       automaticReferenceFixDescription: "Коли перевірка знаходить помилки у списку літератури, створювати Markdown-пакет із CEUR-форматованими замінами, оцінками впевненості, джерелами та експортом BibTeX/CSL-JSON.",
+      fontEvidence: "Показувати докази DejaVu/шрифтів",
+      fontEvidenceDescription: "Додавати до звіту рядки `--> Page ... font ... renders ...`, коли додаткова перевірка знаходить текст не Libertinus.",
       referenceTitle: "Як виправити помилки в Reference",
       referenceIntro: "Якщо звіт показує помилки Reference, виправте список посилань у рукописі та запустіть перевірку ще раз.",
       referenceFixes: [
@@ -332,6 +337,8 @@ const translations: Record<Language, Translation> = {
       settingsTitle: "Check settings",
       automaticReferenceFix: "Automatic reference fix",
       automaticReferenceFixDescription: "When reference errors are found, generate a Markdown repair bundle with CEUR-formatted replacements, confidence scores, provenance, and BibTeX/CSL-JSON export.",
+      fontEvidence: "Show DejaVu/font evidence lines",
+      fontEvidenceDescription: "Add `--> Page ... font ... renders ...` lines to the report when the supplemental font check finds non-Libertinus text.",
       referenceTitle: "How to fix Reference mistakes",
       referenceIntro: "If the report shows Reference errors, fix the reference list in the manuscript and run the check again.",
       referenceFixes: [
@@ -450,14 +457,17 @@ function hasReferenceIssues(report: string, referenceStatus: string | null) {
 
 function parseStoredSettings(value: string | null): StoredSettings {
   if (!value) {
-    return { automaticReferenceFix: false };
+    return { automaticReferenceFix: false, fontEvidence: false };
   }
 
   try {
     const parsed = JSON.parse(value) as Partial<StoredSettings>;
-    return { automaticReferenceFix: parsed.automaticReferenceFix === true };
+    return {
+      automaticReferenceFix: parsed.automaticReferenceFix === true,
+      fontEvidence: parsed.fontEvidence === true,
+    };
   } catch {
-    return { automaticReferenceFix: false };
+    return { automaticReferenceFix: false, fontEvidence: false };
   }
 }
 
@@ -658,6 +668,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>("features");
   const [automaticReferenceFix, setAutomaticReferenceFix] = useState(false);
+  const [fontEvidence, setFontEvidence] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState("");
   const [reportFilename, setReportFilename] = useState("");
@@ -675,6 +686,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const [isChecking, setIsChecking] = useState(false);
   const [todayLabel, setTodayLabel] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const helpCloseRef = useRef<HTMLButtonElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const dragDepthRef = useRef(0);
@@ -698,6 +710,10 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const canDownloadActiveMarkdown = reportTab === "references-fix" ? Boolean(referenceFixMarkdown) : Boolean(report);
   const signedInLabel = user.name || user.email || "Google user";
   const signedInDetail = user.email && user.email !== signedInLabel ? user.email : "Google";
+  const closeHelp = useCallback(() => {
+    setIsHelpOpen(false);
+    window.requestAnimationFrame(() => settingsButtonRef.current?.focus());
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = t.locale;
@@ -714,6 +730,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   useEffect(() => {
     const storedSettings = parseStoredSettings(window.localStorage.getItem(settingsStorageKey));
     setAutomaticReferenceFix(storedSettings.automaticReferenceFix);
+    setFontEvidence(storedSettings.fontEvidence);
 
     const storedAnalysis = parseStoredAnalysis(window.localStorage.getItem(latestAnalysisStorageKey));
     if (storedAnalysis) {
@@ -747,8 +764,8 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
       return;
     }
 
-    window.localStorage.setItem(settingsStorageKey, JSON.stringify({ automaticReferenceFix }));
-  }, [automaticReferenceFix, isStorageReady]);
+    window.localStorage.setItem(settingsStorageKey, JSON.stringify({ automaticReferenceFix, fontEvidence }));
+  }, [automaticReferenceFix, fontEvidence, isStorageReady]);
 
   useEffect(() => {
     if (!isStorageReady) {
@@ -805,13 +822,13 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
 
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsHelpOpen(false);
+        closeHelp();
       }
     };
 
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [isHelpOpen]);
+  }, [closeHelp, isHelpOpen]);
 
   useEffect(() => {
     const updateDate = () => setTodayLabel(formatLocalDate(new Date()));
@@ -891,6 +908,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
     const form = new FormData();
     form.append("file", file);
     form.append("referenceFix", automaticReferenceFix ? "1" : "0");
+    form.append("fontEvidence", fontEvidence ? "1" : "0");
 
     let handledApiError = false;
 
@@ -1006,6 +1024,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             </a>
             <button
+              ref={settingsButtonRef}
               type="button"
               data-testid="info-button"
               onClick={() => {
@@ -1070,7 +1089,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
             className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) {
-                setIsHelpOpen(false);
+                closeHelp();
               }
             }}
           >
@@ -1088,7 +1107,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 <button
                   ref={helpCloseRef}
                   type="button"
-                  onClick={() => setIsHelpOpen(false)}
+                  onClick={closeHelp}
                   className="icon-button inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus-ring"
                   aria-label={t.help.close}
                 >
@@ -1173,25 +1192,39 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                     aria-labelledby="info-modal-settings-tab"
                   >
                     <h3 className="text-base font-semibold leading-tight text-heading">{t.help.settingsTitle}</h3>
-                    <label className="soft-panel mt-4 flex cursor-pointer items-start gap-3 rounded-[22px] p-4 text-body">
-                    <input
-                      type="checkbox"
-                      checked={automaticReferenceFix}
-                      onChange={(event) => setAutomaticReferenceFix(event.target.checked)}
-                      className="mt-1 h-4 w-4 shrink-0 accent-emerald-700"
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-heading">{t.help.automaticReferenceFix}</span>
-                      <span className="mt-1 block text-sm leading-6 text-body">{t.help.automaticReferenceFixDescription}</span>
-                    </span>
-                    </label>
+                    <div className="mt-4 grid gap-3">
+                      <label className="soft-panel flex cursor-pointer items-start gap-3 rounded-[22px] p-4 text-body">
+                        <input
+                          type="checkbox"
+                          checked={automaticReferenceFix}
+                          onChange={(event) => setAutomaticReferenceFix(event.target.checked)}
+                          className="mt-1 h-4 w-4 shrink-0 accent-emerald-700"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-heading">{t.help.automaticReferenceFix}</span>
+                          <span className="mt-1 block text-sm leading-6 text-body">{t.help.automaticReferenceFixDescription}</span>
+                        </span>
+                      </label>
+                      <label className="soft-panel flex cursor-pointer items-start gap-3 rounded-[22px] p-4 text-body">
+                        <input
+                          type="checkbox"
+                          checked={fontEvidence}
+                          onChange={(event) => setFontEvidence(event.target.checked)}
+                          className="mt-1 h-4 w-4 shrink-0 accent-emerald-700"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-heading">{t.help.fontEvidence}</span>
+                          <span className="mt-1 block text-sm leading-6 text-body">{t.help.fontEvidenceDescription}</span>
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 )}
               </div>
               <div className="mt-5 flex shrink-0 justify-end">
                 <button
                   type="button"
-                  onClick={() => setIsHelpOpen(false)}
+                  onClick={closeHelp}
                   className="reference-dark inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-semibold transition focus-ring"
                 >
                   {t.help.close}
@@ -1327,7 +1360,9 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                   <button
                     type="button"
                     role="tab"
+                    id="report-tab-check-report"
                     aria-selected={reportTab === "check-report"}
+                    aria-controls="report-panel-check-report"
                     onClick={() => setReportTab("check-report")}
                     className={classNames(
                       "inline-flex h-7 items-center rounded-full px-2 text-xs font-semibold leading-none transition focus-ring",
@@ -1340,7 +1375,9 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                     <button
                       type="button"
                       role="tab"
+                      id="report-tab-references-fix"
                       aria-selected={reportTab === "references-fix"}
+                      aria-controls="report-panel-references-fix"
                       onClick={() => setReportTab("references-fix")}
                       className={classNames(
                         "inline-flex h-7 items-center rounded-full px-2 text-xs font-semibold leading-none transition focus-ring",
@@ -1380,13 +1417,18 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                     canDownloadActiveMarkdown ? "reference-dark" : "reference-disabled",
                   )}
                 >
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4 w-4" aria-hidden="true" />
                   {reportTab === "references-fix" ? t.actions.downloadReferenceFix : t.actions.download}
                 </button>
               </div>
             </div>
             <div className="report-frame mt-3 min-h-0 flex-1 overflow-hidden rounded-[24px]">
-              <div className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-report" aria-label={activeAriaLabel}>
+              <div
+                id={reportTab === "references-fix" ? "report-panel-references-fix" : "report-panel-check-report"}
+                role="tabpanel"
+                className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-report"
+                aria-label={activeAriaLabel}
+              >
                 {activeMarkdown ? (
                   reportView === "preview" ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>

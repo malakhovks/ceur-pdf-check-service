@@ -15,9 +15,14 @@ official CEUR-WS `check-pdf-errors` checker.
   uploads reach `/api/check`.
 - `bin/ceur-pdf-check` is the Bash CLI. It validates arguments, accepts PDF,
   DOCX, DOC, and ODT manuscripts, converts office formats with LibreOffice in a
-  separate scratch directory, runs CEUR checks and the reference checker, writes
-  a Markdown report, and can write structured reference extraction JSON through
+  separate scratch directory, runs CEUR checks plus supplemental font/reference
+  checkers, writes a Markdown report, can show opt-in font evidence through
+  `--font-evidence`, and can write structured reference extraction JSON through
   `--reference-json-output` for API repair features.
+- `bin/ceur-font-check` is the Python helper that inspects rendered PDF glyph
+  fonts with pdfminer, reports non-Libertinus body/heading text once by default,
+  and emits `--> Page ... font ... renders ...` evidence lines only when
+  requested.
 - `bin/ceur-reference-check` is the Python helper that extracts rendered PDF text
   with Poppler, validates CEURART-style numbered reference sections, and can
   emit structured JSON with the extracted section, parsed entries, and per-entry
@@ -26,8 +31,9 @@ official CEUR-WS `check-pdf-errors` checker.
   routes, reference-fix worker, sign-in page, protected compact dashboard,
   resilient drag-and-drop upload control, stable-size localized Settings modal
   with App features/Settings tabs, Reference repair guidance, prompt download,
-  persisted theme/settings/latest-analysis state, matched compact theme/language
-  pill switchers, and full-width tabbed rendered/source Markdown report panel.
+  persisted theme/settings/latest-analysis state, opt-in DejaVu/font evidence
+  setting, matched compact theme/language pill switchers, and full-width tabbed
+  rendered/source Markdown report panel.
 - `auth.ts` configures Auth.js Google Sign-In, JWT sessions, and disabled-by-
   default test authentication. `proxy.ts` protects the dashboard and `/api/check`.
 - `tests/` contains Playwright UI/API tests, reference extraction and repair
@@ -127,18 +133,20 @@ equal-width, full-width report surface, no notes surface, and no document
 scroll. Header controls should preserve the localized Settings modal, Reference
 repair guidance, static `ceur_ws_reference_prompt.md` download link,
 localStorage-backed light/dark theme switcher, persisted automatic reference fix
-setting/latest analysis, matching compact `UA`/`EN` language switcher,
-localized developer credit, and accessible labels even when visible labels are
-intentionally short. When backend error strings change, update the client
+and font evidence settings/latest analysis, matching compact `UA`/`EN`
+language switcher, localized developer credit, and accessible labels even when
+visible labels are intentionally short. When backend error strings change, update the client
 `errorTranslations` map and Ukrainian/English copy together so server-origin
 failures remain localized.
 
 ## Testing Guidelines
 
-For `bin/ceur-pdf-check` or `bin/ceur-reference-check` changes, run `bash -n`,
-`python3 -m py_compile bin/ceur-reference-check`, rebuild the image, and perform
-container runs against the sample PDF plus DOCX/ODT manuscripts when conversion
-paths are touched. For reference-check changes, verify that reports include
+For `bin/ceur-pdf-check`, `bin/ceur-font-check`, or `bin/ceur-reference-check`
+changes, run `bash -n`, run `python3 -m py_compile bin/ceur-font-check bin/ceur-reference-check`, rebuild the image, and perform container runs against
+the sample PDF plus DOCX/ODT manuscripts when conversion paths or font/reference
+reporting are touched. For font-check changes, verify evidence lines stay hidden
+by default and appear with `--font-evidence`. For reference-check changes, verify
+that reports include
 `## Reference Check`, `Reference status`, and `Reference errors`. For directory
 handling changes, test a mounted directory with multiple supported manuscripts
 and optional `index.html` or `watermark-log.txt` companions.
@@ -150,7 +158,9 @@ for traceable proxy-originated errors. For reference-fix changes, cover the
 worker with mocked metadata responses, verify Crossref/DataCite timeout fallback,
 verify low-confidence suggestions are still generated with review notes, and
 verify preview localization does not alter raw Source/download Markdown. For
-upload/request handling changes, verify a valid PDF larger than 10 MB but below
+font evidence changes, verify the Settings checkbox persists, `/api/check` sends
+the setting to the CLI, and report Source/download content remains raw Markdown.
+For upload/request handling changes, verify a valid PDF larger than 10 MB but below
 30 MB, such as local `1111.pdf` when available, reaches checker processing
 instead of failing multipart parsing.
 For queue or concurrent-processing changes, run
@@ -165,8 +175,9 @@ Verify compact viewports use internal scrolling for controls and report
 content. For header control changes, verify the Settings modal, Reference
 repair guidance, ChatGPT prompt instructions, prompt download link, modal size
 stability across tabs, persisted dark/light theme, persisted automatic reference
-fix setting, wordless theme switcher, compact `UA`/`EN` language switcher,
-localized developer credit, `role="switch"` and `aria-checked` semantics,
+fix and font evidence settings, wordless theme switcher, compact `UA`/`EN`
+language switcher, localized developer credit, `role="switch"` and
+`aria-checked` semantics,
 theme/language switcher size parity, and accessible labels in both Ukrainian and
 English. For report rendering changes, verify rendered Markdown preview, raw
 source mode, the conditional `Література`/References fix tab, and latest-analysis
@@ -187,10 +198,11 @@ unless they are intentional fixtures.
 ## Security & Configuration Tips
 
 The image downloads executable CEUR scripts during build, relies on LibreOffice
-for office-manuscript conversion, and uses Poppler's `pdftotext` for rendered
-reference extraction. Automatic reference repair may contact Crossref and
-DataCite from the API route when enabled by the user; keep metadata lookup
-timeouts/fallbacks in place so external services cannot block checker results.
+for office-manuscript conversion, uses pdfminer for supplemental rendered font
+inspection, and uses Poppler's `pdftotext` for rendered reference extraction.
+Automatic reference repair may contact Crossref and DataCite from the API route
+when enabled by the user; keep metadata lookup timeouts/fallbacks in place so
+external services cannot block checker results.
 Review URL, checksum, conversion, PDF text-extraction, or metadata lookup
 changes carefully. Do not bake private manuscripts into the image; mount inputs
 at runtime with `-v "$PWD:/work"`.

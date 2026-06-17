@@ -8,3 +8,9 @@ test-results/
 *.log
 ceur-pdf-check-report.md
 report.md
+*.docx
+*.doc
+*.odt
+__pycache__/
+bin/__pycache__/
+*.tsbuildinfo

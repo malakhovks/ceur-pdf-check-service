@@ -53,7 +53,8 @@ RUN mkdir -p /opt/ceur/bin \
 
 COPY bin/ceur-pdf-check /usr/local/bin/ceur-pdf-check
 COPY bin/ceur-reference-check /usr/local/bin/ceur-reference-check
-RUN chmod 755 /usr/local/bin/ceur-pdf-check /usr/local/bin/ceur-reference-check
+COPY bin/ceur-font-check /usr/local/bin/ceur-font-check
+RUN chmod 755 /usr/local/bin/ceur-pdf-check /usr/local/bin/ceur-reference-check /usr/local/bin/ceur-font-check
 
 WORKDIR /app
 COPY --from=builder /app/public ./public
