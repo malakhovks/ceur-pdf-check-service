@@ -4,6 +4,9 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added supplemental non-Libertinus font detection with a packaged `ceur-font-check` helper, merged into `ceur-pdf-check` reports when rendered PDF text uses unexpected body or heading fonts.
+- Kept supplemental font reports quiet by default while adding opt-in evidence lines through `ceur-pdf-check --font-evidence` and the Settings checkbox for showing DejaVu/font evidence.
+- Added regression coverage for default-hidden font evidence, evidence-enabled reports, Settings persistence, API propagation, and Bobok DOCX/PDF font behavior.
 - Added opt-in automatic CEUR reference repair bundles from the Settings modal, with generated Markdown replacement sections, per-reference confidence/provenance, review notes, and BibTeX/CSL-JSON exports.
 - Added structured reference extraction JSON output across `ceur-reference-check`, `ceur-pdf-check --reference-json-output`, and `/api/check` so the web API can build reference repair suggestions after conversion.
 - Added a tabbed report surface with localized `Література`/References fix output shown only when reference issues are detected.

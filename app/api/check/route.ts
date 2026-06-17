@@ -181,11 +181,14 @@ function killCheckerProcess(child: ReturnType<typeof spawn>, signal: NodeJS.Sign
   child.kill(signal);
 }
 
-function runChecker(inputPath: string, outputPath: string, referenceJsonPath?: string): Promise<CheckResult> {
+function runChecker(inputPath: string, outputPath: string, options?: { referenceJsonPath?: string; fontEvidence?: boolean }): Promise<CheckResult> {
   return new Promise((resolve, reject) => {
     const args = [inputPath, "--output", outputPath];
-    if (referenceJsonPath) {
-      args.push("--reference-json-output", referenceJsonPath);
+    if (options?.referenceJsonPath) {
+      args.push("--reference-json-output", options.referenceJsonPath);
+    }
+    if (options?.fontEvidence) {
+      args.push("--font-evidence");
     }
 
     const child = spawn("ceur-pdf-check", args, {
@@ -298,6 +301,7 @@ export async function POST(request: NextRequest) {
 
   const file = formData.get("file");
   const referenceFixRequested = formData.get("referenceFix") === "1";
+  const fontEvidenceRequested = formData.get("fontEvidence") === "1";
 
   if (!(file instanceof File)) {
     return NextResponse.json({ requestId, status: "error", error: `Upload a ${SUPPORTED_FORMAT_LABEL} file to run the check.` }, { status: 400 });
@@ -335,7 +339,10 @@ export async function POST(request: NextRequest) {
 
     const { result, lease } = await runWithCheckerSlot(requestId, async (lease: CheckerQueueLease) => ({
       lease,
-      result: await runChecker(inputPath, outputPath, referenceFixRequested ? referenceJsonPath : undefined),
+      result: await runChecker(inputPath, outputPath, {
+        referenceJsonPath: referenceFixRequested ? referenceJsonPath : undefined,
+        fontEvidence: fontEvidenceRequested,
+      }),
     }));
 
     try {

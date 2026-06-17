@@ -113,6 +113,10 @@ async function writePassingFakeCheckerBin(directory: string) {
   ].join("\n"), "utf8");
   await chmod(referenceCheck, 0o755);
 
+  const fontCheck = path.join(fakeBin, "ceur-font-check");
+  await writeFile(fontCheck, "#!/usr/bin/env bash\nexit 0\n", "utf8");
+  await chmod(fontCheck, 0o755);
+
   const libreOffice = path.join(fakeBin, "libreoffice");
   await writeFile(libreOffice, [
     "#!/usr/bin/env bash",
@@ -283,6 +287,190 @@ test("writes reference JSON output from the CLI when requested", async () => {
   }));
 });
 
+test("adds supplemental font check findings to the Markdown report", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ceur-font-report-test-"));
+  const fakeBin = path.join(directory, "bin");
+  await mkdir(fakeBin);
+
+  const checkPdfErrors = path.join(fakeBin, "check-pdf-errors");
+  await writeFile(checkPdfErrors, "#!/usr/bin/env bash\necho 'CEUR checker ok'\n", "utf8");
+  await chmod(checkPdfErrors, 0o755);
+
+  const referenceCheck = path.join(fakeBin, "ceur-reference-check");
+  await writeFile(referenceCheck, [
+    "#!/usr/bin/env bash",
+    "echo 'No reference errors were detected.'",
+    "echo",
+    "echo '### paper.pdf'",
+    "echo '- Status: pass'",
+    "echo '- References detected: 1'",
+    "echo '- No CEURART-style reference errors detected.'",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(referenceCheck, 0o755);
+
+  const fontCheck = path.join(fakeBin, "ceur-font-check");
+  await writeFile(fontCheck, [
+    "#!/usr/bin/env bash",
+    "cat <<'EOF'",
+    "PDF file paper.pdf seems not use Libertinus Serif font for body text and Libertinus Sans font for headings",
+    "EOF",
+    "exit 1",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(fontCheck, 0o755);
+
+  const pdfPath = path.join(directory, "paper.pdf");
+  const reportPath = path.join(directory, "report.md");
+  await writeFile(pdfPath, Buffer.from("%PDF-1.4\n% fake fixture\n"));
+
+  try {
+    await execFileAsync("bash", [path.resolve("bin/ceur-pdf-check"), pdfPath, "--output", reportPath], {
+      env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH || ""}` },
+      cwd: path.resolve("."),
+    });
+    throw new Error("Expected ceur-pdf-check to fail when supplemental font findings exist.");
+  } catch (error) {
+    const failure = error as { code?: number };
+    expect(failure.code).toBe(1);
+  }
+
+  const report = await readFile(reportPath, "utf8");
+  expect(report).toContain("| Status | fail |");
+  expect(report).toContain("| Finding lines | 1 |");
+  expect(report).toContain("- PDF file paper.pdf seems not use Libertinus Serif font for body text and Libertinus Sans font for headings");
+  expect(report).not.toContain("--> Page 11");
+  expect(report).not.toContain("singular value decomposition of B.");
+  expect(report).toContain("CEUR checker ok");
+});
+
+test("includes supplemental font evidence lines when requested", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ceur-font-evidence-test-"));
+  const fakeBin = path.join(directory, "bin");
+  await mkdir(fakeBin);
+
+  const checkPdfErrors = path.join(fakeBin, "check-pdf-errors");
+  await writeFile(checkPdfErrors, [
+    "#!/usr/bin/env bash",
+    "echo 'CEUR checker ok'",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(checkPdfErrors, 0o755);
+
+  const referenceCheck = path.join(fakeBin, "ceur-reference-check");
+  await writeFile(referenceCheck, [
+    "#!/usr/bin/env bash",
+    "echo 'No reference errors were detected.'",
+    "echo",
+    "echo '### paper.pdf'",
+    "echo '- Status: pass'",
+    "echo '- References detected: 1'",
+    "echo '- No CEURART-style reference errors detected.'",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(referenceCheck, 0o755);
+
+  const fontCheck = path.join(fakeBin, "ceur-font-check");
+  await writeFile(fontCheck, [
+    "#!/usr/bin/env bash",
+    "if [[ $* != *--evidence* ]]; then",
+    "  echo 'missing --evidence flag' >&2",
+    "  exit 2",
+    "fi",
+    "cat <<'EOF'",
+    "PDF file paper.pdf seems not use Libertinus Serif font for body text and Libertinus Sans font for headings",
+    " --> Page 11: font DejaVuSans renders \"of\" in \"singular value decomposition of B.\"",
+    "EOF",
+    "exit 1",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(fontCheck, 0o755);
+
+  const pdfPath = path.join(directory, "paper.pdf");
+  const reportPath = path.join(directory, "report.md");
+  await writeFile(pdfPath, Buffer.from(["%PDF-1.4", "% fake fixture", ""].join("\n")));
+
+  try {
+    await execFileAsync("bash", [path.resolve("bin/ceur-pdf-check"), pdfPath, "--output", reportPath, "--font-evidence"], {
+      env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH || ""}` },
+      cwd: path.resolve("."),
+    });
+    throw new Error("Expected ceur-pdf-check to fail when supplemental font evidence exists.");
+  } catch (error) {
+    const failure = error as { code?: number };
+    expect(failure.code).toBe(1);
+  }
+
+  const report = await readFile(reportPath, "utf8");
+  expect(report).toContain("| Status | fail |");
+  expect(report).toContain("| Finding lines | 2 |");
+  expect(report).toContain("- PDF file paper.pdf seems not use Libertinus Serif font for body text and Libertinus Sans font for headings");
+  expect(report).toContain("-  --> Page 11: font DejaVuSans renders \"of\" in \"singular value decomposition of B.\"");
+});
+
+test("does not duplicate official font findings or add supplemental evidence lines", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ceur-font-dedupe-test-"));
+  const fakeBin = path.join(directory, "bin");
+  await mkdir(fakeBin);
+
+  const checkPdfErrors = path.join(fakeBin, "check-pdf-errors");
+  await writeFile(checkPdfErrors, [
+    "#!/usr/bin/env bash",
+    "cat <<'EOF'",
+    "PDF file paper.pdf seems not use Libertinus Serif font for body text and Libertinus Sans font for headings",
+    " ===> Make sure that paper PDFs use the Libertinus font family",
+    "Can't open index.html: No such file or directory.",
+    "EOF",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(checkPdfErrors, 0o755);
+
+  const referenceCheck = path.join(fakeBin, "ceur-reference-check");
+  await writeFile(referenceCheck, [
+    "#!/usr/bin/env bash",
+    "echo 'No reference errors were detected.'",
+    "echo",
+    "echo '### paper.pdf'",
+    "echo '- Status: pass'",
+    "echo '- References detected: 1'",
+    "echo '- No CEURART-style reference errors detected.'",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(referenceCheck, 0o755);
+
+  const fontCheck = path.join(fakeBin, "ceur-font-check");
+  await writeFile(fontCheck, [
+    "#!/usr/bin/env bash",
+    "echo 'PDF file paper.pdf seems not use Libertinus Serif font for body text and Libertinus Sans font for headings'",
+    "exit 1",
+    "",
+  ].join("\n"), "utf8");
+  await chmod(fontCheck, 0o755);
+
+  const pdfPath = path.join(directory, "paper.pdf");
+  const reportPath = path.join(directory, "report.md");
+  await writeFile(pdfPath, Buffer.from("%PDF-1.4\n% fake fixture\n"));
+
+  try {
+    await execFileAsync("bash", [path.resolve("bin/ceur-pdf-check"), pdfPath, "--output", reportPath], {
+      env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH || ""}` },
+      cwd: path.resolve("."),
+    });
+    throw new Error("Expected ceur-pdf-check to fail when official font findings exist.");
+  } catch (error) {
+    const failure = error as { code?: number };
+    expect(failure.code).toBe(1);
+  }
+
+  const report = await readFile(reportPath, "utf8");
+  const primaryFinding = "- PDF file paper.pdf seems not use Libertinus Serif font for body text and Libertinus Sans font for headings";
+  expect(report).toContain("| Finding lines | 3 |");
+  expect(report.split(primaryFinding)).toHaveLength(2);
+  expect(report).toContain("-  ===> Make sure that paper PDFs use the Libertinus font family");
+  expect(report).toContain("- Can't open index.html: No such file or directory.");
+  expect(report).not.toContain("--> Page");
+});
+
 test("checks directory manuscripts and avoids duplicate generated PDF names", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "ceur-directory-test-"));
   const fakeBin = await writePassingFakeCheckerBin(directory);
@@ -355,6 +543,10 @@ test("adds reference check failures to the Markdown report", async () => {
     "",
   ].join("\n"), "utf8");
   await chmod(referenceCheck, 0o755);
+
+  const fontCheck = path.join(fakeBin, "ceur-font-check");
+  await writeFile(fontCheck, "#!/usr/bin/env bash\nexit 0\n", "utf8");
+  await chmod(fontCheck, 0o755);
 
   const pdfPath = path.join(directory, "paper.pdf");
   const reportPath = path.join(directory, "report.md");

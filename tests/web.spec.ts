@@ -312,9 +312,13 @@ test("opens localized settings modal and persists settings and the dark theme", 
   expect(Math.abs(ukSettingsBox!.width - ukFeaturesBox!.width)).toBeLessThanOrEqual(1);
   expect(Math.abs(ukSettingsBox!.height - ukFeaturesBox!.height)).toBeLessThanOrEqual(1);
   const autoFixCheckbox = ukDialog.getByRole("checkbox", { name: /Автоматичне виправлення літератури/ });
+  const fontEvidenceCheckbox = ukDialog.getByRole("checkbox", { name: /Показувати докази DejaVu\/шрифтів/ });
   await expect(autoFixCheckbox).not.toBeChecked();
+  await expect(fontEvidenceCheckbox).not.toBeChecked();
   await autoFixCheckbox.check();
+  await fontEvidenceCheckbox.check();
   await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("ceur-pdf-check-settings"))).toContain("\"automaticReferenceFix\":true");
+  await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("ceur-pdf-check-settings"))).toContain("\"fontEvidence\":true");
   await page.keyboard.press("Escape");
   await expect(ukDialog).not.toBeVisible();
 
@@ -334,6 +338,7 @@ test("opens localized settings modal and persists settings and the dark theme", 
   await expect(enPromptLink).toHaveAttribute("download", "ceur_ws_reference_prompt.md");
   await enDialog.getByRole("tab", { name: "Settings" }).click();
   await expect(enDialog.getByRole("checkbox", { name: /Automatic reference fix/ })).toBeChecked();
+  await expect(enDialog.getByRole("checkbox", { name: /Show DejaVu\/font evidence lines/ })).toBeChecked();
   await enDialog.getByRole("button", { name: "Close" }).last().click();
   await expect(enDialog).not.toBeVisible();
 
@@ -753,13 +758,16 @@ test("sends the automatic fix setting, renders fix Markdown, downloads it, and r
   await page.getByRole("button", { name: "Налаштування" }).click();
   await page.getByRole("tab", { name: "Налаштування" }).click();
   await page.getByRole("checkbox", { name: /Автоматичне виправлення літератури/ }).check();
+  await page.getByRole("checkbox", { name: /Показувати докази DejaVu\/шрифтів/ }).check();
   await page.getByRole("button", { name: "Закрити" }).last().click();
 
   await page.locator('input[type="file"]').setInputFiles(pdfFixture("paper.pdf"));
   await page.getByRole("button", { name: "Запустити перевірку" }).click();
 
   await expect.poll(() => postedBody).toContain("referenceFix");
-  await expect.poll(() => postedBody).toContain("1");
+  await expect.poll(() => postedBody).toContain("fontEvidence");
+  expect(postedBody).toMatch(/name="referenceFix"\r?\n\r?\n1/);
+  expect(postedBody).toMatch(/name="fontEvidence"\r?\n\r?\n1/);
   await page.getByRole("tab", { name: "Література" }).click();
   const fixPanel = page.getByLabel("Markdown-виправлення літератури");
   await expect(fixPanel.getByRole("heading", { name: "Виправлення літератури CEUR", level: 1 })).toBeVisible();

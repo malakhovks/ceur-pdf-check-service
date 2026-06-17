@@ -3,9 +3,11 @@
 Dockerized web and CLI service for checking CEUR-WS manuscripts in PDF, DOCX,
 DOC, and ODT formats. DOCX, DOC, and ODT manuscripts are converted to PDF with
 LibreOffice before the official `check-pdf-errors` tool and rendered
-CEURART-style reference validation generate a Markdown report. When enabled in
-Settings, the web app can also generate a manual CEUR reference repair bundle
-for manuscripts with reference issues.
+CEURART-style reference validation generate a Markdown report. The checker
+also adds supplemental non-Libertinus font detection, with detailed evidence
+lines hidden by default. When enabled in Settings, the web app can generate a
+manual CEUR reference repair bundle for manuscripts with reference issues and
+show DejaVu/font evidence lines for font findings.
 
 ## Web UI
 
@@ -39,9 +41,12 @@ The dashboard header includes project links, localized developer credit, a
 localized Settings modal, a persisted light/dark theme switcher, and a matching
 compact `UA`/`EN` language switcher. The stable-size Settings modal has App
 features and Settings tabs: App features explains supported checks, Reference
-mistake repair, and the ChatGPT prompt workflow; Settings contains the opt-in
-automatic reference fix checkbox. The theme choice, automatic reference fix
-setting, and latest analysis state are stored in the browser. Both pill-style
+mistake repair, and the ChatGPT prompt workflow; Settings contains opt-in
+checkboxes for automatic reference fix and DejaVu/font evidence lines. Font
+evidence is hidden by default; enabling it appends `--> Page ... font ...
+renders ...` lines to reports when supplemental font findings are present. The
+theme choice, automatic reference fix setting, font evidence setting, and latest
+analysis state are stored in the browser. Both pill-style
 header switchers avoid full visible labels while keeping accessible names. The
 dashboard localizes checker/API errors in Ukrainian and English, including
 upload parsing, queue, timeout, and missing report failures. Unauthenticated protected API errors
@@ -144,6 +149,24 @@ docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
   --output /work/report.md
 ```
 
+Include supplemental font evidence lines when investigating non-Libertinus
+findings:
+
+```bash
+docker compose --env-file .env run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/work" ceur-pdf-check \
+  ceur-pdf-check /work/paper.pdf \
+  --font-evidence \
+  --output /work/report.md
+```
+
+Reports also include supplemental font validation implemented by
+`ceur-font-check`. The helper inspects rendered PDF glyph fonts with pdfminer and
+reports unexpected non-Libertinus body or heading text as a single finding by
+default. Use `--font-evidence` to include up to five `--> Page ... font ...
+renders ...` evidence lines per file; the web UI exposes the same behavior in
+Settings as Show DejaVu/font evidence lines.
+
 Reports also include a reference check implemented by `ceur-reference-check`.
 The helper extracts each checked PDF's rendered text with Poppler and validates
 that the References section follows CEURART-style output: bracketed numbered
@@ -197,7 +220,7 @@ Run checks:
 
 ```bash
 bash -n bin/ceur-pdf-check
-python3 -m py_compile bin/ceur-reference-check
+python3 -m py_compile bin/ceur-font-check bin/ceur-reference-check
 AUTH_SECRET=dev-only-auth-secret-change-me-minimum-32-chars \
 AUTH_GOOGLE_ID=test-client-id \
 AUTH_GOOGLE_SECRET=test-client-secret \
@@ -236,7 +259,8 @@ localized server-side error handling, fixed-shell layout, compact
 dashboard/report alignment, compact viewport reachability, stable upload
 dropzone drag state, Settings modal Reference guidance, prompt download link,
 modal size stability, persisted dark theme, persisted automatic reference fix
-settings/latest analysis, matched theme/language switch semantics and sizing,
+and font evidence settings/latest analysis, matched theme/language switch
+semantics and sizing,
 rendered Markdown reports, source-mode Markdown, raw report downloads with
 analyzed-file-based filenames, localized References fix preview/source/download
 behavior, internal report scrolling, stale response handling, supported
@@ -254,10 +278,11 @@ The image downloads the CEUR scripts during build:
 - `https://ceur-ws.org/ceurtools/check-libbyhead.py`
 
 The image also installs LibreOffice Writer for DOCX, DOC, and ODT conversion,
-and the project-local `ceur-reference-check` helper, which uses `pdftotext`
-from Poppler to validate rendered CEURART-style references. Automatic reference
-repair metadata lookup contacts Crossref and DataCite from the Node API route
-when the user enables the feature.
+the project-local `ceur-font-check` helper, which uses pdfminer to inspect
+rendered font names, and the project-local `ceur-reference-check` helper, which
+uses `pdftotext` from Poppler to validate rendered CEURART-style references.
+Automatic reference repair metadata lookup contacts Crossref and DataCite from
+the Node API route when the user enables the feature.
 
 ## Exit Status
 
