@@ -56,6 +56,97 @@ function sampleReport(extraRaw = "WARNING: raw English output") {
   ].join("\n");
 }
 
+function sampleReferenceIssueReport() {
+  return [
+    "# CEUR PDF Check Report",
+    "",
+    "| Field | Value |",
+    "| --- | --- |",
+    "| Status | fail |",
+    "| Generated | 2026-06-05T00:00:00Z |",
+    "| Input | /tmp/paper.pdf |",
+    "| Manuscript count | 1 |",
+    "| PDF count | 1 |",
+    "| Tests | all |",
+    "| Checker exit code | 1 |",
+    "| Finding lines | 0 |",
+    "| Reference status | fail |",
+    "| Reference errors | 1 |",
+    "",
+    "## Reference Check",
+    "1 reference error(s) detected.",
+    "",
+    "### paper.pdf",
+    "- Status: fail",
+    "- References detected: 1",
+    "- ERROR: [1] DOI values must be rendered with the CEURART prefix `doi:`.",
+    "",
+    "## Findings",
+    "",
+    "No likely findings were detected in the CEUR checker output.",
+    "",
+    "## Raw CEUR Output",
+    "",
+    "```text",
+    "CEUR checker ok",
+    "```",
+  ].join("\n");
+}
+
+function sampleReferenceFixMarkdown() {
+  return [
+    "# CEUR Reference Fix",
+    "",
+    "| Field | Value |",
+    "| --- | --- |",
+    "| Manuscript | paper.pdf |",
+    "| References detected | 1 |",
+    "| Repaired suggestions | 1 |",
+    "| High confidence | 1 |",
+    "| Medium confidence | 0 |",
+    "| Low confidence | 0 |",
+    "",
+    "## Replacement References Section",
+    "",
+    "```text",
+    "References",
+    "[1] P. S. Abril, R. Plant, The patent holder's dilemma, Communications of the ACM 50 (2007) 36-44. doi:10.1145/1188913.1188915.",
+    "```",
+    "",
+    "## Per-reference Repairs",
+    "",
+    "### [1]",
+    "",
+    "- Confidence: high (98%)",
+    "- Provenance: Crossref (https://doi.org/10.1145/1188913.1188915)",
+    "- Review note: High-confidence metadata match; still verify before submission.",
+    "",
+    "**Original**",
+    "",
+    "```text",
+    "P. S. Abril, R. Plant, The patent holder's dilemma. https://doi.org/10.1145/1188913.1188915.",
+    "```",
+    "",
+    "**Suggested CEUR reference**",
+    "",
+    "```text",
+    "[1] P. S. Abril, R. Plant, The patent holder's dilemma, Communications of the ACM 50 (2007) 36-44. doi:10.1145/1188913.1188915.",
+    "```",
+    "",
+    "## BibTeX Export",
+    "",
+    "```bibtex",
+    "@article{example, title = {Example}}",
+    "```",
+    "",
+    "## CSL-JSON Export",
+    "",
+    "```json",
+    "[]",
+    "```",
+  ].join("\n");
+}
+
 async function switchToEnglish(page: import("@playwright/test").Page) {
   await page.getByTestId("language-switcher").click();
 }
@@ -134,7 +225,7 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await expect(page.getByRole("button", { name: "Завантажити report.md" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Перегляд" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Код" })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByRole("button", { name: "Інфо" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Налаштування" })).toBeVisible();
   await expect(themeSwitcher).toHaveAttribute("role", "switch");
   await expect(themeSwitcher).toHaveAttribute("aria-checked", "false");
   await expect(languageSwitcher).toHaveAttribute("role", "switch");
@@ -157,7 +248,7 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   await expect(page.getByRole("button", { name: "Run check" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Preview" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Source" })).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByRole("button", { name: "Info" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
   await expect(themeSwitcher).toHaveAttribute("aria-checked", "false");
   await expect(languageSwitcher).toHaveAttribute("aria-checked", "true");
   await expect(languageSwitcher).toHaveAttribute("aria-label", "Українська");
@@ -197,13 +288,17 @@ test("shows developer credit and fixed project links in the header", async ({ pa
   await expectNoDocumentScroll(page);
 });
 
-test("opens localized info modal and persists the dark theme", async ({ page }) => {
+test("opens localized settings modal and persists settings and the dark theme", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Інфо" }).click();
-  const ukDialog = page.getByRole("dialog", { name: "Можливості застосунку" });
+  await page.getByRole("button", { name: "Налаштування" }).click();
+  const ukDialog = page.getByRole("dialog", { name: "Налаштування" });
   await expect(ukDialog).toBeVisible();
   await expect(ukDialog).toHaveClass(/max-w-3xl/);
+  await expect(ukDialog.getByRole("tab", { name: "Можливості" })).toHaveAttribute("aria-selected", "true");
+  await expect(ukDialog.getByRole("tab", { name: "Налаштування" })).toHaveAttribute("aria-selected", "false");
+  const ukFeaturesBox = await ukDialog.boundingBox();
+  expect(ukFeaturesBox).toBeTruthy();
   await expect(ukDialog).toContainText("Завантажуйте PDF, DOCX, DOC або ODT рукописи.");
   await expect(ukDialog).toContainText("Читайте Markdown-звіт у режимі перегляду або сирого коду.");
   await expect(ukDialog).toContainText("Додайте розділ References і використовуйте послідовну нумерацію [1], [2], [3].");
@@ -211,14 +306,25 @@ test("opens localized info modal and persists the dark theme", async ({ page }) 
   const ukPromptLink = ukDialog.getByRole("link", { name: "Завантажити промпт ceur_ws_reference_prompt.md для ChatGPT" });
   await expect(ukPromptLink).toHaveAttribute("href", "/ceur_ws_reference_prompt.md");
   await expect(ukPromptLink).toHaveAttribute("download", "ceur_ws_reference_prompt.md");
+  await ukDialog.getByRole("tab", { name: "Налаштування" }).click();
+  const ukSettingsBox = await ukDialog.boundingBox();
+  expect(ukSettingsBox).toBeTruthy();
+  expect(Math.abs(ukSettingsBox!.width - ukFeaturesBox!.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(ukSettingsBox!.height - ukFeaturesBox!.height)).toBeLessThanOrEqual(1);
+  const autoFixCheckbox = ukDialog.getByRole("checkbox", { name: /Автоматичне виправлення літератури/ });
+  await expect(autoFixCheckbox).not.toBeChecked();
+  await autoFixCheckbox.check();
+  await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("ceur-pdf-check-settings"))).toContain("\"automaticReferenceFix\":true");
   await page.keyboard.press("Escape");
   await expect(ukDialog).not.toBeVisible();
 
   await switchToEnglish(page);
-  await page.getByRole("button", { name: "Info" }).click();
-  const enDialog = page.getByRole("dialog", { name: "App features" });
+  await page.getByRole("button", { name: "Settings" }).click();
+  const enDialog = page.getByRole("dialog", { name: "Settings" });
   await expect(enDialog).toBeVisible();
   await expect(enDialog).toHaveClass(/max-w-3xl/);
+  await expect(enDialog.getByRole("tab", { name: "App features" })).toHaveAttribute("aria-selected", "true");
+  await expect(enDialog.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "false");
   await expect(enDialog).toContainText("Upload PDF, DOCX, DOC, or ODT manuscripts.");
   await expect(enDialog).toContainText("Review the Markdown report as rendered preview or raw source.");
   await expect(enDialog).toContainText("Add a References section and use sequential bracketed labels: [1], [2], [3].");
@@ -226,6 +332,8 @@ test("opens localized info modal and persists the dark theme", async ({ page }) 
   const enPromptLink = enDialog.getByRole("link", { name: "Download the ceur_ws_reference_prompt.md prompt for ChatGPT" });
   await expect(enPromptLink).toHaveAttribute("href", "/ceur_ws_reference_prompt.md");
   await expect(enPromptLink).toHaveAttribute("download", "ceur_ws_reference_prompt.md");
+  await enDialog.getByRole("tab", { name: "Settings" }).click();
+  await expect(enDialog.getByRole("checkbox", { name: /Automatic reference fix/ })).toBeChecked();
   await enDialog.getByRole("button", { name: "Close" }).last().click();
   await expect(enDialog).not.toBeVisible();
 
@@ -261,6 +369,9 @@ test("opens localized info modal and persists the dark theme", async ({ page }) 
   await page.reload();
   await expect.poll(async () => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
   await expect(page.getByTestId("theme-switcher")).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Налаштування" }).click();
+  await page.getByRole("tab", { name: "Налаштування" }).click();
+  await expect(page.getByRole("checkbox", { name: /Автоматичне виправлення літератури/ })).toBeChecked();
   await expectNoDocumentScroll(page);
 });
 
@@ -582,6 +693,100 @@ test("translates reports in Ukrainian while source and downloads stay raw", asyn
   expect(content).toContain("WARNING: raw English output");
   expect(content).not.toContain("# Звіт перевірки CEUR PDF");
   expect(content).not.toContain("## Сирий вивід CEUR (англійською)");
+});
+
+test("shows the References fix tab with enable guidance when automatic fix is off", async ({ page }) => {
+  await page.route("/api/check", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        requestId: "reference-issue-request",
+        filename: "paper.pdf",
+        status: "fail",
+        referenceStatus: "fail",
+        findingCount: 0,
+        exitCode: 1,
+        queuedMs: 0,
+        report: sampleReferenceIssueReport(),
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("paper.pdf"));
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+
+  await expect(page.getByRole("tab", { name: "Звіт перевірки" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Література" })).toBeVisible();
+  await page.getByRole("tab", { name: "Література" }).click();
+  await expect(page.getByLabel("Markdown-виправлення літератури")).toContainText("Автоматичне виправлення літератури вимкнено.");
+  await expect(page.getByRole("button", { name: "Завантажити references_fix.md" })).toBeDisabled();
+});
+
+test("sends the automatic fix setting, renders fix Markdown, downloads it, and restores latest analysis", async ({ page }) => {
+  let postedBody = "";
+
+  await page.route("/api/check", async (route) => {
+    postedBody = route.request().postData() || "";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        requestId: "reference-fix-request",
+        filename: "paper.pdf",
+        status: "fail",
+        referenceStatus: "fail",
+        findingCount: 0,
+        exitCode: 1,
+        queuedMs: 0,
+        report: sampleReferenceIssueReport(),
+        referenceFix: {
+          status: "generated",
+          markdown: sampleReferenceFixMarkdown(),
+        },
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Налаштування" }).click();
+  await page.getByRole("tab", { name: "Налаштування" }).click();
+  await page.getByRole("checkbox", { name: /Автоматичне виправлення літератури/ }).check();
+  await page.getByRole("button", { name: "Закрити" }).last().click();
+
+  await page.locator('input[type="file"]').setInputFiles(pdfFixture("paper.pdf"));
+  await page.getByRole("button", { name: "Запустити перевірку" }).click();
+
+  await expect.poll(() => postedBody).toContain("referenceFix");
+  await expect.poll(() => postedBody).toContain("1");
+  await page.getByRole("tab", { name: "Література" }).click();
+  const fixPanel = page.getByLabel("Markdown-виправлення літератури");
+  await expect(fixPanel.getByRole("heading", { name: "Виправлення літератури CEUR", level: 1 })).toBeVisible();
+  await expect(fixPanel).toContainText("Розділ літератури для заміни");
+  await expect(fixPanel).toContainText("Виправлення за джерелами");
+  await expect(fixPanel).toContainText("Запропоноване посилання CEUR");
+  await expect(fixPanel).toContainText("Впевненість: висока");
+  await expect(fixPanel).toContainText("Джерело: Crossref");
+  await expect(fixPanel).toContainText("doi:10.1145/1188913.1188915");
+
+  await page.getByRole("button", { name: "Код" }).click();
+  await expect(fixPanel.locator("pre").filter({ hasText: "# CEUR Reference Fix" })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Завантажити references_fix.md" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("references_fix_paper.md");
+  const downloadPath = await download.path();
+  expect(downloadPath).toBeTruthy();
+  const content = await readFile(downloadPath!, "utf8");
+  expect(content).toContain("# CEUR Reference Fix");
+
+  await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("ceur-pdf-check-latest-analysis"))).toContain("CEUR Reference Fix");
+  await page.getByRole("button", { name: "Перегляд" }).click();
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Література" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByLabel("Markdown-виправлення літератури")).toContainText("Виправлення літератури CEUR");
 });
 
 test("uses internal report scrolling for long output", async ({ page }) => {

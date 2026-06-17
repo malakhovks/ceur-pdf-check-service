@@ -33,6 +33,31 @@ async function runReferenceCheck(content: string) {
   }
 }
 
+async function runReferenceCheckJson(content: string) {
+  const fixturePath = await writeTextFixture(content);
+  const jsonPath = path.join(path.dirname(fixturePath), "references.json");
+
+  try {
+    const result = await execFileAsync("python3", [checkerPath, "--text-file", fixturePath, "--json-output", jsonPath], {
+      cwd: path.resolve("."),
+    });
+    return {
+      exitCode: 0,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      json: JSON.parse(await readFile(jsonPath, "utf8")) as unknown,
+    };
+  } catch (error) {
+    const failure = error as { code?: number; stdout?: string; stderr?: string };
+    return {
+      exitCode: failure.code ?? 1,
+      stdout: failure.stdout ?? "",
+      stderr: failure.stderr ?? "",
+      json: JSON.parse(await readFile(jsonPath, "utf8")) as unknown,
+    };
+  }
+}
+
 async function writePassingFakeCheckerBin(directory: string) {
   const fakeBin = path.join(directory, "bin");
   await mkdir(fakeBin);
@@ -54,8 +79,30 @@ async function writePassingFakeCheckerBin(directory: string) {
   const referenceCheck = path.join(fakeBin, "ceur-reference-check");
   await writeFile(referenceCheck, [
     "#!/usr/bin/env bash",
+    "json_output=''",
+    "pdfs=()",
+    "while [[ $# -gt 0 ]]; do",
+    '  case "$1" in',
+    "    --json-output)",
+    '      json_output="$2"',
+    "      shift 2",
+    "      ;;",
+    "    --)",
+    "      shift",
+    "      ;;",
+    "    *)",
+    '      pdfs+=("$1")',
+    "      shift",
+    "      ;;",
+    "  esac",
+    "done",
+    'if [[ -n "$json_output" ]]; then',
+    "  cat > \"$json_output\" <<'JSON'",
+    '{"version":1,"results":[{"name":"paper.pdf","reference_count":1,"errors":[],"reference_section":"[1] Example","entries":[{"label":1,"text":"Example","errors":[]}]}]}',
+    "JSON",
+    "fi",
     "echo 'No reference errors were detected.'",
-    'for pdf in "$@"; do',
+    'for pdf in "${pdfs[@]}"; do',
     "  echo",
     '  echo "### $pdf"',
     "  echo '- Status: pass'",
@@ -113,6 +160,28 @@ test("passes CEURART-style numbered references", async () => {
   expect(result.stdout).toContain("No reference errors were detected.");
   expect(result.stdout).toContain("- Status: pass");
   expect(result.stdout).toContain("- References detected: 3");
+});
+
+test("writes structured reference extraction JSON", async () => {
+  const result = await runReferenceCheckJson([
+    "References",
+    "[1] L. Lamport, LaTeX: A Document Preparation System, Addison-Wesley, Reading, MA., 1986.",
+  ].join("\n"));
+
+  expect(result.exitCode).toBe(0);
+  expect(result.json).toEqual(expect.objectContaining({
+    version: 1,
+    results: [expect.objectContaining({
+      name: "references.txt",
+      reference_count: 1,
+      reference_section: expect.stringContaining("Lamport"),
+      entries: [expect.objectContaining({
+        label: 1,
+        text: expect.stringContaining("LaTeX: A Document Preparation System"),
+        errors: [],
+      })],
+    })],
+  }));
 });
 
 test("fails when the reference section is missing", async () => {
@@ -189,6 +258,29 @@ test("converts supported single-file manuscript formats before building reports"
     expect(report).toContain("## Reference Check");
     expect(report).not.toContain("ERROR (P2) with duplicate PDF files!!!!");
   }
+});
+
+test("writes reference JSON output from the CLI when requested", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ceur-reference-json-output-test-"));
+  const fakeBin = await writePassingFakeCheckerBin(directory);
+  const pdfPath = path.join(directory, "paper.pdf");
+  const reportPath = path.join(directory, "report.md");
+  const jsonPath = path.join(directory, "references.json");
+  await writeFile(pdfPath, Buffer.from("%PDF-1.4\n% fake fixture\n"));
+
+  await execFileAsync("bash", [path.resolve("bin/ceur-pdf-check"), pdfPath, "--output", reportPath, "--reference-json-output", jsonPath], {
+    env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH || ""}` },
+    cwd: path.resolve("."),
+  });
+
+  const payload = JSON.parse(await readFile(jsonPath, "utf8")) as unknown;
+  expect(payload).toEqual(expect.objectContaining({
+    version: 1,
+    results: [expect.objectContaining({
+      name: "paper.pdf",
+      entries: [expect.objectContaining({ label: 1 })],
+    })],
+  }));
 });
 
 test("checks directory manuscripts and avoids duplicate generated PDF names", async () => {

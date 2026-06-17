@@ -5,6 +5,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
+import { buildReferenceFix, type ReferenceCheckJson } from "./reference-fix";
 import {
   getCheckerQueueSnapshot,
   isCheckerQueueFull,
@@ -180,9 +181,14 @@ function killCheckerProcess(child: ReturnType<typeof spawn>, signal: NodeJS.Sign
   child.kill(signal);
 }
 
-function runChecker(inputPath: string, outputPath: string): Promise<CheckResult> {
+function runChecker(inputPath: string, outputPath: string, referenceJsonPath?: string): Promise<CheckResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn("ceur-pdf-check", [inputPath, "--output", outputPath], {
+    const args = [inputPath, "--output", outputPath];
+    if (referenceJsonPath) {
+      args.push("--reference-json-output", referenceJsonPath);
+    }
+
+    const child = spawn("ceur-pdf-check", args, {
       detached: process.platform !== "win32",
       env: process.env,
     });
@@ -252,6 +258,11 @@ function readStatus(report: string) {
   return match ? match[1].trim() : "unknown";
 }
 
+function readReferenceStatus(report: string) {
+  const match = report.match(/\| Reference status \| ([^|]+) \|/);
+  return match ? match[1].trim() : "unknown";
+}
+
 function overloadResponse(requestId: string, message: string) {
   return NextResponse.json({
     requestId,
@@ -286,6 +297,7 @@ export async function POST(request: NextRequest) {
   }
 
   const file = formData.get("file");
+  const referenceFixRequested = formData.get("referenceFix") === "1";
 
   if (!(file instanceof File)) {
     return NextResponse.json({ requestId, status: "error", error: `Upload a ${SUPPORTED_FORMAT_LABEL} file to run the check.` }, { status: 400 });
@@ -309,6 +321,7 @@ export async function POST(request: NextRequest) {
   const filename = sanitizeFilename(file.name || `manuscript${format.extension}`, format.extension);
   const inputPath = path.join(workDir, filename);
   const outputPath = path.join(workDir, "report.md");
+  const referenceJsonPath = path.join(workDir, "references.json");
 
   try {
     await mkdir(workDir, { recursive: true });
@@ -322,19 +335,41 @@ export async function POST(request: NextRequest) {
 
     const { result, lease } = await runWithCheckerSlot(requestId, async (lease: CheckerQueueLease) => ({
       lease,
-      result: await runChecker(inputPath, outputPath),
+      result: await runChecker(inputPath, outputPath, referenceFixRequested ? referenceJsonPath : undefined),
     }));
 
     try {
       const report = await readFile(outputPath, "utf8");
+      const referenceStatus = readReferenceStatus(report);
+      let referenceFix;
+
+      if (referenceFixRequested && referenceStatus === "fail") {
+        try {
+          const referenceData = JSON.parse(await readFile(referenceJsonPath, "utf8")) as ReferenceCheckJson;
+          referenceFix = await buildReferenceFix(referenceData, { filename });
+        } catch {
+          referenceFix = {
+            status: "unavailable",
+            warning: "Structured reference data was not available for repair generation.",
+          };
+        }
+      } else if (referenceFixRequested) {
+        referenceFix = {
+          status: "skipped",
+          warning: "No reference issues were detected.",
+        };
+      }
+
       return NextResponse.json({
         requestId,
         filename,
         status: readStatus(report),
+        referenceStatus,
         findingCount: readFindingCount(report),
         exitCode: result.exitCode,
         queuedMs: lease.queuedMs,
         report,
+        referenceFix,
       });
     } catch {
       const report = [

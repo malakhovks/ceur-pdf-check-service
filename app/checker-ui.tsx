@@ -14,10 +14,10 @@ import {
   ExternalLink,
   FileText,
   GitBranch,
-  Info,
   LoaderCircle,
   LogOut,
   Moon,
+  Settings,
   ShieldCheck,
   Sun,
   UploadCloud,
@@ -27,7 +27,15 @@ import {
 
 type Language = "uk" | "en";
 type ReportView = "preview" | "source";
+type ReportTab = "check-report" | "references-fix";
+type HelpTab = "features" | "settings";
 type Theme = "light" | "dark";
+
+type ReferenceFixResponse = {
+  status: "generated" | "skipped" | "unavailable";
+  markdown?: string;
+  warning?: string;
+};
 
 export type SignedInUser = {
   name?: string | null;
@@ -39,11 +47,32 @@ type CheckResponse = {
   requestId?: string;
   filename?: string;
   status?: string;
+  referenceStatus?: string;
   findingCount?: number | null;
   exitCode?: number | null;
   report?: string;
+  referenceFix?: ReferenceFixResponse;
   error?: string;
   queuedMs?: number;
+};
+
+type StoredSettings = {
+  automaticReferenceFix: boolean;
+};
+
+type StoredAnalysis = {
+  filename: string;
+  status: string | null;
+  referenceStatus: string | null;
+  findingCount: number | null;
+  exitCode: number | null;
+  report: string;
+  referenceFixMarkdown: string;
+  referenceFixStatus: ReferenceFixResponse["status"] | "";
+  referenceFixWarning: string;
+  reportTab: ReportTab;
+  reportView: ReportView;
+  updatedAt: string;
 };
 
 type Translation = {
@@ -82,20 +111,32 @@ type Translation = {
     run: string;
     checking: string;
     download: string;
+    downloadReferenceFix: string;
   };
   report: {
     eyebrow: string;
     title: string;
     empty: string;
+    fixEmpty: string;
+    fixDisabled: string;
     ariaLabel: string;
+    fixAriaLabel: string;
+    checkReport: string;
+    referencesFix: string;
     viewMode: string;
     preview: string;
     source: string;
   };
   help: {
+    modalTitle: string;
+    featuresTab: string;
+    settingsTab: string;
     title: string;
     intro: string;
     features: string[];
+    settingsTitle: string;
+    automaticReferenceFix: string;
+    automaticReferenceFixDescription: string;
     referenceTitle: string;
     referenceIntro: string;
     referenceFixes: string[];
@@ -117,7 +158,7 @@ const translations: Record<Language, Translation> = {
       subtitle: "Перевірка рукопису для CEUR-WS",
       github: "GitHub",
       developer: "Розробник",
-      info: "Інфо",
+      info: "Налаштування",
       language: "Мова інтерфейсу",
       theme: "Тема інтерфейсу",
       lightTheme: "Світла",
@@ -146,17 +187,26 @@ const translations: Record<Language, Translation> = {
       run: "Запустити перевірку",
       checking: "Перевірка",
       download: "Завантажити report.md",
+      downloadReferenceFix: "Завантажити references_fix.md",
     },
     report: {
       eyebrow: "Звіт",
       title: "Markdown-вивід перевірки",
       empty: "Завантажте рукопис і запустіть перевірку CEUR, щоб прочитати Markdown-звіт тут.",
+      fixEmpty: "Виправлення літератури зʼявиться тут після перевірки рукопису з помилками у списку посилань.",
+      fixDisabled: "Автоматичне виправлення літератури вимкнено. Увімкніть його в Налаштуваннях і запустіть перевірку ще раз, щоб отримати Markdown-пакет виправлень.",
       ariaLabel: "Markdown-звіт перевірки",
+      fixAriaLabel: "Markdown-виправлення літератури",
+      checkReport: "Звіт перевірки",
+      referencesFix: "Література",
       viewMode: "Вигляд звіту",
       preview: "Перегляд",
       source: "Код",
     },
     help: {
+      modalTitle: "Налаштування",
+      featuresTab: "Можливості",
+      settingsTab: "Налаштування",
       title: "Можливості застосунку",
       intro: "CEUR PDF Check допомагає швидко перевірити рукопис перед поданням до CEUR-WS.",
       features: [
@@ -165,6 +215,9 @@ const translations: Record<Language, Translation> = {
         "Читайте Markdown-звіт у режимі перегляду або сирого коду.",
         "Завантажуйте оригінальний Markdown-звіт з назвою за рукописом.",
       ],
+      settingsTitle: "Параметри перевірки",
+      automaticReferenceFix: "Автоматичне виправлення літератури",
+      automaticReferenceFixDescription: "Коли перевірка знаходить помилки у списку літератури, створювати Markdown-пакет із CEUR-форматованими замінами, оцінками впевненості, джерелами та експортом BibTeX/CSL-JSON.",
       referenceTitle: "Як виправити помилки в Reference",
       referenceIntro: "Якщо звіт показує помилки Reference, виправте список посилань у рукописі та запустіть перевірку ще раз.",
       referenceFixes: [
@@ -219,7 +272,7 @@ const translations: Record<Language, Translation> = {
       subtitle: "Manuscript validation report generator",
       github: "GitHub",
       developer: "Developer",
-      info: "Info",
+      info: "Settings",
       language: "Interface language",
       theme: "Interface theme",
       lightTheme: "Light",
@@ -248,17 +301,26 @@ const translations: Record<Language, Translation> = {
       run: "Run check",
       checking: "Checking",
       download: "Download report.md",
+      downloadReferenceFix: "Download references_fix.md",
     },
     report: {
       eyebrow: "Report",
       title: "Markdown validation output",
       empty: "Upload a manuscript and run the CEUR check to read the generated Markdown report here.",
+      fixEmpty: "The References fix will appear here after a check finds reference-list issues.",
+      fixDisabled: "Automatic reference fix is off. Enable it in Settings and run the check again to generate a Markdown repair bundle.",
       ariaLabel: "Markdown validation report",
+      fixAriaLabel: "Markdown References fix",
+      checkReport: "Check report",
+      referencesFix: "References fix",
       viewMode: "Report view",
       preview: "Preview",
       source: "Source",
     },
     help: {
+      modalTitle: "Settings",
+      featuresTab: "App features",
+      settingsTab: "Settings",
       title: "App features",
       intro: "CEUR PDF Check helps validate a manuscript before CEUR-WS submission.",
       features: [
@@ -267,6 +329,9 @@ const translations: Record<Language, Translation> = {
         "Review the Markdown report as rendered preview or raw source.",
         "Download the original Markdown report with a manuscript-based filename.",
       ],
+      settingsTitle: "Check settings",
+      automaticReferenceFix: "Automatic reference fix",
+      automaticReferenceFixDescription: "When reference errors are found, generate a Markdown repair bundle with CEUR-formatted replacements, confidence scores, provenance, and BibTeX/CSL-JSON export.",
       referenceTitle: "How to fix Reference mistakes",
       referenceIntro: "If the report shows Reference errors, fix the reference list in the manuscript and run the check again.",
       referenceFixes: [
@@ -338,6 +403,8 @@ const errorTranslations: Record<string, keyof Translation["errors"]> = {
 const githubRepoUrl = "https://github.com/malakhovks/ceur-pdf-check-service";
 const developerCreditUrl = "https://linktr.ee/malakhovks";
 const themeStorageKey = "ceur-pdf-check-theme";
+const settingsStorageKey = "ceur-pdf-check-settings";
+const latestAnalysisStorageKey = "ceur-pdf-check-latest-analysis";
 const supportedManuscriptExtensions = [".pdf", ".docx", ".doc", ".odt"];
 const supportedManuscriptMimeTypes = new Set([
   "application/pdf",
@@ -363,6 +430,65 @@ function reportDownloadFilename(filename: string | null | undefined) {
   const normalized = stem.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+$/, "").slice(0, 120);
 
   return normalized ? `report_${normalized}.md` : "report.md";
+}
+
+function referenceFixDownloadFilename(filename: string | null | undefined) {
+  const reportFilename = reportDownloadFilename(filename);
+  return reportFilename === "report.md"
+    ? "references_fix.md"
+    : reportFilename.replace(/^report_/, "references_fix_");
+}
+
+function readReferenceStatusFromReport(report: string) {
+  const match = report.match(/\| Reference status \| ([^|]+) \|/);
+  return match ? match[1].trim() : null;
+}
+
+function hasReferenceIssues(report: string, referenceStatus: string | null) {
+  return referenceStatus === "fail" || readReferenceStatusFromReport(report) === "fail";
+}
+
+function parseStoredSettings(value: string | null): StoredSettings {
+  if (!value) {
+    return { automaticReferenceFix: false };
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<StoredSettings>;
+    return { automaticReferenceFix: parsed.automaticReferenceFix === true };
+  } catch {
+    return { automaticReferenceFix: false };
+  }
+}
+
+function parseStoredAnalysis(value: string | null): StoredAnalysis | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<StoredAnalysis>;
+    if (typeof parsed.report !== "string") {
+      return null;
+    }
+
+    return {
+      filename: typeof parsed.filename === "string" ? parsed.filename : "",
+      status: typeof parsed.status === "string" ? parsed.status : null,
+      referenceStatus: typeof parsed.referenceStatus === "string" ? parsed.referenceStatus : null,
+      findingCount: typeof parsed.findingCount === "number" ? parsed.findingCount : null,
+      exitCode: typeof parsed.exitCode === "number" ? parsed.exitCode : null,
+      report: parsed.report,
+      referenceFixMarkdown: typeof parsed.referenceFixMarkdown === "string" ? parsed.referenceFixMarkdown : "",
+      referenceFixStatus: parsed.referenceFixStatus === "generated" || parsed.referenceFixStatus === "skipped" || parsed.referenceFixStatus === "unavailable" ? parsed.referenceFixStatus : "",
+      referenceFixWarning: typeof parsed.referenceFixWarning === "string" ? parsed.referenceFixWarning : "",
+      reportTab: parsed.reportTab === "references-fix" ? "references-fix" : "check-report",
+      reportView: parsed.reportView === "source" ? "source" : "preview",
+      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
+    };
+  } catch {
+    return null;
+  }
 }
 
 
@@ -485,14 +611,61 @@ function translateReport(report: string, language: Language) {
   return `${translatedReport}\n\n## Сирий вивід CEUR (англійською)\n${rawOutput}`;
 }
 
+function translateReferenceFixMarkdown(markdown: string, language: Language) {
+  if (!markdown || language === "en") {
+    return markdown;
+  }
+
+  return markdown
+    .replace(/^# CEUR Reference Fix$/m, "# Виправлення літератури CEUR")
+    .replace(/^\| Field \| Value \|$/m, "| Поле | Значення |")
+    .replace(/^\| Manuscript \|/gm, "| Рукопис |")
+    .replace(/^\| References detected \|/gm, "| Знайдено джерел |")
+    .replace(/^\| Repaired suggestions \|/gm, "| Запропоновано виправлень |")
+    .replace(/^\| High confidence \|/gm, "| Висока впевненість |")
+    .replace(/^\| Medium confidence \|/gm, "| Середня впевненість |")
+    .replace(/^\| Low confidence \|/gm, "| Низька впевненість |")
+    .replace(/^\| Generated \|/gm, "| Створено |")
+    .replace(/^## Replacement References Section$/m, "## Розділ літератури для заміни")
+    .replace(/^## Per-reference Repairs$/m, "## Виправлення за джерелами")
+    .replace(/^- Confidence: high \((\d+)%\)$/gm, "- Впевненість: висока ($1%)")
+    .replace(/^- Confidence: medium \((\d+)%\)$/gm, "- Впевненість: середня ($1%)")
+    .replace(/^- Confidence: low \((\d+)%\)$/gm, "- Впевненість: низька ($1%)")
+    .replace(/^- Provenance: Extracted text/gm, "- Джерело: витягнутий текст")
+    .replace(/^- Provenance:/gm, "- Джерело:")
+    .replace(/^- Review note: Review required before inserting into the manuscript\.$/gm, "- Примітка до перевірки: потрібна ручна перевірка перед вставленням у рукопис.")
+    .replace(/^- Review note: High-confidence metadata match; still verify before submission\.$/gm, "- Примітка до перевірки: метадані знайдено з високою впевненістю; все одно перевірте перед поданням.")
+    .replace(/^\*\*Original\*\*$/gm, "**Оригінал**")
+    .replace(/^\*\*Suggested CEUR reference\*\*$/gm, "**Запропоноване посилання CEUR**")
+    .replace(/^## BibTeX Export$/m, "## Експорт BibTeX")
+    .replace(/^## CSL-JSON Export$/m, "## Експорт CSL-JSON")
+    .replace(/^## Notes$/m, "## Примітки")
+    .replace(/^The reference checker found reference issues, but no numbered reference entries were extracted\.$/gm, "Перевірка літератури знайшла помилки, але не змогла витягнути нумеровані записи.")
+    .replace(/^- Add a `References` section with bracketed numeric labels such as `\[1\]`, `\[2\]`, `\[3\]`\.$/gm, "- Додайте розділ `References` із числовими мітками у квадратних дужках, наприклад `[1]`, `[2]`, `[3]`.")
+    .replace(/^- Run the check again with Automatic reference fix enabled after references are present\.$/gm, "- Запустіть перевірку ще раз після додавання джерел і ввімкнення автоматичного виправлення літератури.")
+    .replace(/^- This bundle is for manual insertion; the uploaded manuscript was not rewritten\.$/gm, "- Цей пакет призначений для ручного вставлення; завантажений рукопис не змінювався.")
+    .replace(/^- Medium- and low-confidence suggestions must be reviewed against official source metadata\.$/gm, "- Пропозиції із середньою та низькою впевненістю потрібно звірити з офіційними метаданими джерел.")
+    .replace(/^- CEUR papers should cite the stable CEUR paper URL when no DOI exists for the individual paper\.$/gm, "- Для статей CEUR потрібно цитувати стабільну URL-адресу статті CEUR, якщо окрема стаття не має DOI.")
+    .replace(/^- Some suggestions were reconstructed from extracted text because external metadata lookup did not return a reliable match\.$/gm, "- Частину пропозицій реконструйовано з витягнутого тексту, бо зовнішній пошук метаданих не повернув надійного збігу.")
+    .replace(/^% BibTeX export unavailable for the reconstructed references\.$/gm, "% Експорт BibTeX недоступний для реконструйованих джерел.");
+}
+
 export default function CheckerUi({ user }: { user: SignedInUser }) {
   const [language, setLanguage] = useState<Language>("uk");
   const [theme, setTheme] = useState<Theme>("light");
   const [isThemeReady, setIsThemeReady] = useState(false);
+  const [isStorageReady, setIsStorageReady] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [helpTab, setHelpTab] = useState<HelpTab>("features");
+  const [automaticReferenceFix, setAutomaticReferenceFix] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [report, setReport] = useState("");
   const [reportFilename, setReportFilename] = useState("");
+  const [referenceStatus, setReferenceStatus] = useState<string | null>(null);
+  const [referenceFixMarkdown, setReferenceFixMarkdown] = useState("");
+  const [referenceFixStatus, setReferenceFixStatus] = useState<ReferenceFixResponse["status"] | "">("");
+  const [referenceFixWarning, setReferenceFixWarning] = useState("");
+  const [reportTab, setReportTab] = useState<ReportTab>("check-report");
   const [reportView, setReportView] = useState<ReportView>("preview");
   const [status, setStatus] = useState<string | null>(null);
   const [findingCount, setFindingCount] = useState<number | null>(null);
@@ -510,6 +683,19 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const t = translations[language];
   const selectedName = file ? file.name : t.upload.noFileSelected;
   const previewReport = useMemo(() => translateReport(report, language), [report, language]);
+  const referenceIssuesDetected = hasReferenceIssues(report, referenceStatus);
+  const referenceFixFallback = referenceIssuesDetected
+    ? referenceFixWarning
+      ? `# CEUR Reference Fix\n\n${referenceFixWarning}`
+      : t.report.fixDisabled
+    : t.report.fixEmpty;
+  const activeMarkdown = reportTab === "references-fix"
+    ? referenceFixMarkdown || referenceFixFallback
+    : report;
+  const previewReferenceFix = useMemo(() => translateReferenceFixMarkdown(activeMarkdown, language), [activeMarkdown, language]);
+  const previewMarkdown = reportTab === "references-fix" ? previewReferenceFix : previewReport;
+  const activeAriaLabel = reportTab === "references-fix" ? t.report.fixAriaLabel : t.report.ariaLabel;
+  const canDownloadActiveMarkdown = reportTab === "references-fix" ? Boolean(referenceFixMarkdown) : Boolean(report);
   const signedInLabel = user.name || user.email || "Google user";
   const signedInDetail = user.email && user.email !== signedInLabel ? user.email : "Google";
 
@@ -526,6 +712,28 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   }, []);
 
   useEffect(() => {
+    const storedSettings = parseStoredSettings(window.localStorage.getItem(settingsStorageKey));
+    setAutomaticReferenceFix(storedSettings.automaticReferenceFix);
+
+    const storedAnalysis = parseStoredAnalysis(window.localStorage.getItem(latestAnalysisStorageKey));
+    if (storedAnalysis) {
+      setReport(storedAnalysis.report);
+      setReportFilename(storedAnalysis.filename);
+      setStatus(storedAnalysis.status);
+      setReferenceStatus(storedAnalysis.referenceStatus);
+      setFindingCount(storedAnalysis.findingCount);
+      setExitCode(storedAnalysis.exitCode);
+      setReferenceFixMarkdown(storedAnalysis.referenceFixMarkdown);
+      setReferenceFixStatus(storedAnalysis.referenceFixStatus);
+      setReferenceFixWarning(storedAnalysis.referenceFixWarning);
+      setReportTab(storedAnalysis.reportTab);
+      setReportView(storedAnalysis.reportView);
+    }
+
+    setIsStorageReady(true);
+  }, []);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
 
@@ -533,6 +741,60 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
       window.localStorage.setItem(themeStorageKey, theme);
     }
   }, [theme, isThemeReady]);
+
+  useEffect(() => {
+    if (!isStorageReady) {
+      return;
+    }
+
+    window.localStorage.setItem(settingsStorageKey, JSON.stringify({ automaticReferenceFix }));
+  }, [automaticReferenceFix, isStorageReady]);
+
+  useEffect(() => {
+    if (!isStorageReady) {
+      return;
+    }
+
+    if (!report && !referenceFixMarkdown && !status) {
+      window.localStorage.removeItem(latestAnalysisStorageKey);
+      return;
+    }
+
+    const storedAnalysis: StoredAnalysis = {
+      filename: reportFilename,
+      status,
+      referenceStatus,
+      findingCount,
+      exitCode,
+      report,
+      referenceFixMarkdown,
+      referenceFixStatus,
+      referenceFixWarning,
+      reportTab,
+      reportView,
+      updatedAt: new Date().toISOString(),
+    };
+    window.localStorage.setItem(latestAnalysisStorageKey, JSON.stringify(storedAnalysis));
+  }, [
+    exitCode,
+    findingCount,
+    isStorageReady,
+    referenceFixMarkdown,
+    referenceFixStatus,
+    referenceFixWarning,
+    referenceStatus,
+    report,
+    reportFilename,
+    reportTab,
+    reportView,
+    status,
+  ]);
+
+  useEffect(() => {
+    if (reportTab === "references-fix" && !referenceIssuesDetected) {
+      setReportTab("check-report");
+    }
+  }, [referenceIssuesDetected, reportTab]);
 
   useEffect(() => {
     if (!isHelpOpen) {
@@ -562,6 +824,11 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
   const resetResult = () => {
     setReport("");
     setReportFilename("");
+    setReferenceStatus(null);
+    setReferenceFixMarkdown("");
+    setReferenceFixStatus("");
+    setReferenceFixWarning("");
+    setReportTab("check-report");
     setStatus(null);
     setFindingCount(null);
     setExitCode(null);
@@ -594,12 +861,13 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
     setFile(candidate);
   };
 
-  const downloadReport = () => {
-    if (!report) return;
-    const url = URL.createObjectURL(new Blob([report], { type: "text/markdown;charset=utf-8" }));
+  const downloadActiveMarkdown = () => {
+    const content = reportTab === "references-fix" ? referenceFixMarkdown : report;
+    if (!content) return;
+    const url = URL.createObjectURL(new Blob([content], { type: "text/markdown;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = reportDownloadFilename(reportFilename);
+    anchor.download = reportTab === "references-fix" ? referenceFixDownloadFilename(reportFilename) : reportDownloadFilename(reportFilename);
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -622,6 +890,7 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
 
     const form = new FormData();
     form.append("file", file);
+    form.append("referenceFix", automaticReferenceFix ? "1" : "0");
 
     let handledApiError = false;
 
@@ -644,6 +913,10 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
         setReport(payload.report || "");
         setReportFilename(payload.filename || "");
         setStatus(payload.status || "error");
+        setReferenceStatus(payload.referenceStatus || readReferenceStatusFromReport(payload.report || ""));
+        setReferenceFixMarkdown(payload.referenceFix?.markdown || "");
+        setReferenceFixStatus(payload.referenceFix?.status || "");
+        setReferenceFixWarning(payload.referenceFix?.warning || "");
         setFindingCount(payload.findingCount ?? null);
         setExitCode(payload.exitCode ?? null);
         throw new Error(payload.error || "The checker API failed.");
@@ -652,6 +925,10 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
       setReport(payload.report || "");
       setReportFilename(payload.filename || "");
       setStatus(payload.status || "unknown");
+      setReferenceStatus(payload.referenceStatus || readReferenceStatusFromReport(payload.report || ""));
+      setReferenceFixMarkdown(payload.referenceFix?.markdown || "");
+      setReferenceFixStatus(payload.referenceFix?.status || "");
+      setReferenceFixWarning(payload.referenceFix?.warning || "");
       setFindingCount(payload.findingCount ?? null);
       setExitCode(payload.exitCode ?? null);
     } catch (checkError) {
@@ -661,6 +938,11 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
 
       if (!handledApiError) {
         setStatus("error");
+        setReferenceStatus(null);
+        setReferenceFixMarkdown("");
+        setReferenceFixStatus("");
+        setReferenceFixWarning("");
+        setReportTab("check-report");
         setFindingCount(null);
         setExitCode(null);
         setReport("");
@@ -726,10 +1008,13 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
             <button
               type="button"
               data-testid="info-button"
-              onClick={() => setIsHelpOpen(true)}
+              onClick={() => {
+                setHelpTab("features");
+                setIsHelpOpen(true);
+              }}
               className="control-surface inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold transition focus-ring"
             >
-              <Info className="h-4 w-4" aria-hidden="true" />
+              <Settings className="h-4 w-4" aria-hidden="true" />
               {t.meta.info}
             </button>
             <button
@@ -793,12 +1078,12 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="info-modal-title"
-              className="modal-panel max-h-full w-full max-w-3xl overflow-auto rounded-[28px] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]"
+              className="modal-panel flex h-[min(44rem,calc(100dvh-3rem))] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] p-5 shadow-[0_24px_70px_rgba(15,23,42,0.24)]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase text-muted">{t.meta.info}</p>
-                  <h2 id="info-modal-title" className="mt-1 text-xl font-semibold leading-tight text-heading">{t.help.title}</h2>
+                  <p className="text-xs font-semibold uppercase text-muted">{t.meta.title}</p>
+                  <h2 id="info-modal-title" className="mt-1 text-xl font-semibold leading-tight text-heading">{t.help.modalTitle}</h2>
                 </div>
                 <button
                   ref={helpCloseRef}
@@ -810,47 +1095,100 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                   <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
-              <p className="mt-4 text-sm leading-6 text-body">{t.help.intro}</p>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-body">
-                {t.help.features.map((feature) => (
-                  <li key={feature} className="flex gap-3">
-                    <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
-                    <span>{feature}</span>
-                  </li>
+              <div className="segmented-control mt-4 inline-flex min-h-9 items-center gap-1 rounded-full p-1" role="tablist" aria-label={t.help.modalTitle}>
+                {([
+                  ["features", t.help.featuresTab],
+                  ["settings", t.help.settingsTab],
+                ] as const).map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={helpTab === tab}
+                    aria-controls={`info-modal-${tab}`}
+                    id={`info-modal-${tab}-tab`}
+                    onClick={() => setHelpTab(tab)}
+                    className={classNames(
+                      "inline-flex h-7 items-center rounded-full px-3 text-xs font-semibold leading-none transition focus-ring",
+                      helpTab === tab ? "reference-dark" : "segmented-option",
+                    )}
+                  >
+                    {label}
+                  </button>
                 ))}
-              </ul>
-              <div className="mt-6 grid gap-6 border-t border-[color:var(--app-border)] pt-5 md:grid-cols-2">
-                <section className="min-w-0">
-                  <h3 className="text-base font-semibold leading-tight text-heading">{t.help.referenceTitle}</h3>
-                  <p className="mt-2 text-sm leading-6 text-body">{t.help.referenceIntro}</p>
-                  <ul className="mt-3 space-y-2 text-sm leading-6 text-body">
-                    {t.help.referenceFixes.map((fix) => (
-                      <li key={fix} className="flex gap-3">
+              </div>
+
+              <div className="mt-4 min-h-0 flex-1 overflow-auto pr-1">
+                {helpTab === "features" ? (
+                  <div
+                    id="info-modal-features"
+                    role="tabpanel"
+                    aria-labelledby="info-modal-features-tab"
+                  >
+                    <p className="text-sm leading-6 text-body">{t.help.intro}</p>
+                  <ul className="mt-4 space-y-3 text-sm leading-6 text-body">
+                    {t.help.features.map((feature) => (
+                      <li key={feature} className="flex gap-3">
                         <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
-                        <span>{fix}</span>
+                        <span>{feature}</span>
                       </li>
                     ))}
                   </ul>
-                </section>
-                <section className="min-w-0">
-                  <h3 className="text-base font-semibold leading-tight text-heading">{t.help.promptTitle}</h3>
-                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-body">
-                    {t.help.promptSteps.map((step) => (
-                      <li key={step} className="pl-1">{step}</li>
-                    ))}
-                  </ol>
-                  <a
-                    href="/ceur_ws_reference_prompt.md"
-                    download="ceur_ws_reference_prompt.md"
-                    className="reference-dark mt-4 inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition focus-ring"
-                    aria-label={t.help.promptDownloadAria}
+                  <div className="mt-6 grid gap-6 border-t border-[color:var(--app-border)] pt-5 md:grid-cols-2">
+                    <section className="min-w-0">
+                      <h3 className="text-base font-semibold leading-tight text-heading">{t.help.referenceTitle}</h3>
+                      <p className="mt-2 text-sm leading-6 text-body">{t.help.referenceIntro}</p>
+                      <ul className="mt-3 space-y-2 text-sm leading-6 text-body">
+                        {t.help.referenceFixes.map((fix) => (
+                          <li key={fix} className="flex gap-3">
+                            <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+                            <span>{fix}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                    <section className="min-w-0">
+                      <h3 className="text-base font-semibold leading-tight text-heading">{t.help.promptTitle}</h3>
+                      <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-body">
+                        {t.help.promptSteps.map((step) => (
+                          <li key={step} className="pl-1">{step}</li>
+                        ))}
+                      </ol>
+                      <a
+                        href="/ceur_ws_reference_prompt.md"
+                        download="ceur_ws_reference_prompt.md"
+                        className="reference-dark mt-4 inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition focus-ring"
+                        aria-label={t.help.promptDownloadAria}
+                      >
+                        <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span className="min-w-0 break-words text-left">{t.help.promptDownload}</span>
+                      </a>
+                    </section>
+                  </div>
+                </div>
+                ) : (
+                  <div
+                    id="info-modal-settings"
+                    role="tabpanel"
+                    aria-labelledby="info-modal-settings-tab"
                   >
-                    <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 break-words text-left">{t.help.promptDownload}</span>
-                  </a>
-                </section>
+                    <h3 className="text-base font-semibold leading-tight text-heading">{t.help.settingsTitle}</h3>
+                    <label className="soft-panel mt-4 flex cursor-pointer items-start gap-3 rounded-[22px] p-4 text-body">
+                    <input
+                      type="checkbox"
+                      checked={automaticReferenceFix}
+                      onChange={(event) => setAutomaticReferenceFix(event.target.checked)}
+                      className="mt-1 h-4 w-4 shrink-0 accent-emerald-700"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-heading">{t.help.automaticReferenceFix}</span>
+                      <span className="mt-1 block text-sm leading-6 text-body">{t.help.automaticReferenceFixDescription}</span>
+                    </span>
+                    </label>
+                  </div>
+                )}
               </div>
-              <div className="mt-5 flex justify-end">
+              <div className="mt-5 flex shrink-0 justify-end">
                 <button
                   type="button"
                   onClick={() => setIsHelpOpen(false)}
@@ -985,6 +1323,34 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 <h2 className="mt-1 text-base font-semibold text-heading sm:text-lg">{t.report.title}</h2>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <div className="segmented-control inline-flex min-h-9 items-center gap-1 rounded-full p-1" role="tablist" aria-label={t.report.eyebrow}>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={reportTab === "check-report"}
+                    onClick={() => setReportTab("check-report")}
+                    className={classNames(
+                      "inline-flex h-7 items-center rounded-full px-2 text-xs font-semibold leading-none transition focus-ring",
+                      reportTab === "check-report" ? "reference-dark" : "segmented-option",
+                    )}
+                  >
+                    {t.report.checkReport}
+                  </button>
+                  {referenceIssuesDetected ? (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={reportTab === "references-fix"}
+                      onClick={() => setReportTab("references-fix")}
+                      className={classNames(
+                        "inline-flex h-7 items-center rounded-full px-2 text-xs font-semibold leading-none transition focus-ring",
+                        reportTab === "references-fix" ? "reference-dark" : "segmented-option",
+                      )}
+                    >
+                      {t.report.referencesFix}
+                    </button>
+                  ) : null}
+                </div>
                 <div className="segmented-control inline-flex min-h-9 items-center gap-1 rounded-full p-1" role="group" aria-label={t.report.viewMode}>
                   {([
                     ["preview", t.report.preview, Eye],
@@ -1007,27 +1373,27 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
                 </div>
                 <button
                   type="button"
-                  onClick={downloadReport}
-                  disabled={!report}
+                  onClick={downloadActiveMarkdown}
+                  disabled={!canDownloadActiveMarkdown}
                   className={classNames(
                     "inline-flex min-h-9 items-center justify-center gap-2 rounded-full px-3 py-1.5 text-center text-sm font-semibold leading-tight transition focus-ring",
-                    report ? "reference-dark" : "reference-disabled",
+                    canDownloadActiveMarkdown ? "reference-dark" : "reference-disabled",
                   )}
                 >
                   <Download className="h-4 w-4" />
-                  {t.actions.download}
+                  {reportTab === "references-fix" ? t.actions.downloadReferenceFix : t.actions.download}
                 </button>
               </div>
             </div>
             <div className="report-frame mt-3 min-h-0 flex-1 overflow-hidden rounded-[24px]">
-              <div className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-report" aria-label={t.report.ariaLabel}>
-                {report ? (
+              <div className="report-markdown h-full overflow-auto p-4 text-sm leading-6 text-report" aria-label={activeAriaLabel}>
+                {activeMarkdown ? (
                   reportView === "preview" ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                      {previewReport}
+                      {previewMarkdown}
                     </ReactMarkdown>
                   ) : (
-                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-report">{report}</pre>
+                    <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-report">{activeMarkdown}</pre>
                   )
                 ) : (
                   <p className="m-0 text-muted">{t.report.empty}</p>
