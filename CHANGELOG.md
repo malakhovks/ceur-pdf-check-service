@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added opt-in automatic CEUR reference repair bundles from the Settings modal, with generated Markdown replacement sections, per-reference confidence/provenance, review notes, and BibTeX/CSL-JSON exports.
+- Added structured reference extraction JSON output across `ceur-reference-check`, `ceur-pdf-check --reference-json-output`, and `/api/check` so the web API can build reference repair suggestions after conversion.
+- Added a tabbed report surface with localized `Література`/References fix output shown only when reference issues are detected.
+- Added persisted Settings and latest-analysis state in `localStorage`, including the automatic reference fix setting, latest report, active report tab, report view, and generated reference repair bundle.
+- Added Crossref/DataCite metadata lookup with Citation.js normalization/export and timeout-backed fallback to extracted-text repair suggestions.
+- Fixed Ukrainian localization for the generated reference-fix preview while preserving raw Markdown in Source mode and downloads.
+- Stabilized the Settings modal size across App features and Settings tabs with internal tab-panel scrolling.
+
 - Fixed valid web uploads larger than Next.js default 10 MB body handling, including `1111.pdf`, by configuring the proxy upload cap above the app's 30 MB manuscript limit.
 - Kept the dedicated concurrent-processing Playwright load test on Chromium only so the desktop and mobile projects do not duplicate load against the same checker queue.
 - Redesigned the compact `UA`/`EN` language control as a single accessible pill

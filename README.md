@@ -3,7 +3,9 @@
 Dockerized web and CLI service for checking CEUR-WS manuscripts in PDF, DOCX,
 DOC, and ODT formats. DOCX, DOC, and ODT manuscripts are converted to PDF with
 LibreOffice before the official `check-pdf-errors` tool and rendered
-CEURART-style reference validation generate a Markdown report.
+CEURART-style reference validation generate a Markdown report. When enabled in
+Settings, the web app can also generate a manual CEUR reference repair bundle
+for manuscripts with reference issues.
 
 ## Web UI
 
@@ -29,13 +31,17 @@ manuscript, run the check, read the generated Markdown report, and download
 for example `report_paper.md`. The report panel renders Markdown by default and
 includes a preview/source switcher. Ukrainian preview localizes report
 headings/metadata for reading, while source mode and downloads keep the raw
-Markdown emitted by the checker.
+Markdown emitted by the checker. When automatic reference fix is enabled, the
+same report surface adds a `Література`/References fix tab for detected
+reference issues and downloads the repair bundle as `references_fix_<stem>.md`.
 
 The dashboard header includes project links, localized developer credit, a
-localized Info modal, a persisted light/dark theme switcher, and a matching
-compact `UA`/`EN` language switcher. The larger Info modal explains supported
-checks, Reference mistake repair, and the ChatGPT prompt workflow in Ukrainian
-and English. The theme choice is stored in the browser and both pill-style
+localized Settings modal, a persisted light/dark theme switcher, and a matching
+compact `UA`/`EN` language switcher. The stable-size Settings modal has App
+features and Settings tabs: App features explains supported checks, Reference
+mistake repair, and the ChatGPT prompt workflow; Settings contains the opt-in
+automatic reference fix checkbox. The theme choice, automatic reference fix
+setting, and latest analysis state are stored in the browser. Both pill-style
 header switchers avoid full visible labels while keeping accessible names. The
 dashboard localizes checker/API errors in Ukrainian and English, including
 upload parsing, queue, timeout, and missing report failures. Unauthenticated protected API errors
@@ -52,11 +58,20 @@ panel has been removed so the report remains the primary workspace. The
 dashboard and `/api/check` require an authenticated Google session; `/api/health`
 stays public for Docker health checks.
 
-The Info modal links to `/ceur_ws_reference_prompt.md`, served from
-`public/ceur_ws_reference_prompt.md`. To generate CEUR-WS references, download
-that Markdown file, upload it to a ChatGPT dialog, paste a list of URLs or DOIs
-in the message field, review the generated references, and copy them into the
-manuscript References section.
+The Settings modal links to `/ceur_ws_reference_prompt.md`, served from
+`public/ceur_ws_reference_prompt.md`. To generate CEUR-WS references manually,
+download that Markdown file, upload it to a ChatGPT dialog, paste a list of URLs
+or DOIs in the message field, review the generated references, and copy them
+into the manuscript References section.
+
+Automatic reference fix is a repair-bundle workflow, not document rewriting. If
+the setting is enabled and the checker finds reference issues, `/api/check`
+uses structured rendered-reference extraction, DOI/URL cleanup, Crossref and
+DataCite metadata lookup, Citation.js BibTeX/CSL-JSON export, and a confidence
+triage policy to produce CEUR-formatted suggestions. Low-confidence suggestions
+are still generated but marked for review. The Ukrainian preview localizes the
+repair-bundle headings and notes, while Source mode and downloads keep the raw
+Markdown bundle unchanged for sharing and auditability.
 
 Configure Google OAuth in `.env` before deployment:
 
@@ -134,7 +149,10 @@ The helper extracts each checked PDF's rendered text with Poppler and validates
 that the References section follows CEURART-style output: bracketed numbered
 entries, sequential labels, publication years, and rendered DOI/URL prefixes
 such as `doi:` and `URL:`. Reference errors are included in
-`## Reference Check` and fail the overall report status.
+`## Reference Check` and fail the overall report status. For API repair
+features, `ceur-pdf-check --reference-json-output references.json` writes the
+structured extracted reference section and parsed entries next to the Markdown
+report.
 
 ## Parallel Requests
 
@@ -216,12 +234,14 @@ it only for local or CI verification by setting `AUTH_TEST_MODE=true` and
 web tests cover authentication, request-id-bearing protected API errors,
 localized server-side error handling, fixed-shell layout, compact
 dashboard/report alignment, compact viewport reachability, stable upload
-dropzone drag state, Info modal Reference guidance and prompt download link,
-persisted dark theme, matched theme/language switch semantics and sizing,
+dropzone drag state, Settings modal Reference guidance, prompt download link,
+modal size stability, persisted dark theme, persisted automatic reference fix
+settings/latest analysis, matched theme/language switch semantics and sizing,
 rendered Markdown reports, source-mode Markdown, raw report downloads with
-analyzed-file-based filenames, internal report scrolling, stale response
-handling, supported manuscript selection, converted-manuscript regressions,
-real PDF checks, and dedicated 2/4/8 concurrent document-processing requests.
+analyzed-file-based filenames, localized References fix preview/source/download
+behavior, internal report scrolling, stale response handling, supported
+manuscript selection, converted-manuscript regressions, real PDF checks, and
+dedicated 2/4/8 concurrent document-processing requests.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.
@@ -235,7 +255,9 @@ The image downloads the CEUR scripts during build:
 
 The image also installs LibreOffice Writer for DOCX, DOC, and ODT conversion,
 and the project-local `ceur-reference-check` helper, which uses `pdftotext`
-from Poppler to validate rendered CEURART-style references.
+from Poppler to validate rendered CEURART-style references. Automatic reference
+repair metadata lookup contacts Crossref and DataCite from the Node API route
+when the user enables the feature.
 
 ## Exit Status
 

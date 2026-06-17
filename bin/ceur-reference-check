@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
@@ -40,6 +41,7 @@ NEXT_SECTION_RE = re.compile(
 class ReferenceEntry:
   label: int
   text: str
+  errors: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -47,6 +49,8 @@ class CheckResult:
   name: str
   reference_count: int
   errors: list[str]
+  reference_section: str | None = None
+  entries: list[ReferenceEntry] = field(default_factory=list)
 
 
 def collapse_whitespace(value: str) -> str:
@@ -177,7 +181,7 @@ def validate_reference_text(name: str, text: str) -> CheckResult:
       errors.append("References must use bracketed numeric labels such as `[1]`, `[2]`, ... .")
     else:
       errors.append("Reference section does not contain numbered reference entries.")
-    return CheckResult(name=name, reference_count=0, errors=errors)
+    return CheckResult(name=name, reference_count=0, errors=errors, reference_section=section)
 
   labels = [entry.label for entry in entries]
   expected = list(range(1, len(entries) + 1))
@@ -185,9 +189,10 @@ def validate_reference_text(name: str, text: str) -> CheckResult:
     errors.append(f"Reference labels must be sequential from [1]; found {', '.join(f'[{label}]' for label in labels)}.")
 
   for entry in entries:
-    errors.extend(validate_entry(entry))
+    entry.errors = validate_entry(entry)
+    errors.extend(entry.errors)
 
-  return CheckResult(name=name, reference_count=len(entries), errors=errors)
+  return CheckResult(name=name, reference_count=len(entries), errors=errors, reference_section=section, entries=entries)
 
 
 def render_markdown(results: list[CheckResult]) -> str:
@@ -215,6 +220,14 @@ def render_markdown(results: list[CheckResult]) -> str:
   return "\n".join(lines).rstrip() + "\n"
 
 
+def render_json(results: list[CheckResult]) -> str:
+  payload = {
+    "version": 1,
+    "results": [asdict(result) for result in results],
+  }
+  return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+
+
 def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(
     description="Validate rendered CEURART-style reference sections in PDFs.",
@@ -224,6 +237,10 @@ def build_parser() -> argparse.ArgumentParser:
     action="append",
     default=[],
     help=argparse.SUPPRESS,
+  )
+  parser.add_argument(
+    "--json-output",
+    help="Write structured reference extraction data to this JSON file.",
   )
   parser.add_argument("pdfs", nargs="*", help="PDF files to inspect")
   return parser
@@ -256,6 +273,13 @@ def main(argv: list[str]) -> int:
       results.append(CheckResult(name=path.name, reference_count=0, errors=[f"Cannot extract PDF text: {error}."]))
     except OSError as error:
       results.append(CheckResult(name=path.name, reference_count=0, errors=[f"Cannot inspect PDF: {error}."]))
+
+  if args.json_output:
+    try:
+      Path(args.json_output).write_text(render_json(results), encoding="utf-8")
+    except OSError as error:
+      sys.stderr.write(f"Cannot write reference JSON output: {error}\n")
+      return 2
 
   sys.stdout.write(render_markdown(results))
   return 1 if any(result.errors for result in results) else 0

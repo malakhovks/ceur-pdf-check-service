@@ -15,22 +15,27 @@ official CEUR-WS `check-pdf-errors` checker.
   uploads reach `/api/check`.
 - `bin/ceur-pdf-check` is the Bash CLI. It validates arguments, accepts PDF,
   DOCX, DOC, and ODT manuscripts, converts office formats with LibreOffice in a
-  separate scratch directory, runs CEUR checks and the reference checker, and
-  writes a Markdown report.
+  separate scratch directory, runs CEUR checks and the reference checker, writes
+  a Markdown report, and can write structured reference extraction JSON through
+  `--reference-json-output` for API repair features.
 - `bin/ceur-reference-check` is the Python helper that extracts rendered PDF text
-  with Poppler and validates CEURART-style numbered reference sections.
+  with Poppler, validates CEURART-style numbered reference sections, and can
+  emit structured JSON with the extracted section, parsed entries, and per-entry
+  errors.
 - `app/` contains the Next.js App Router UI, Auth.js routes, health/check API
-  routes, sign-in page, protected compact dashboard, resilient drag-and-drop
-  upload control, enlarged localized Info modal with Reference repair guidance
-  and prompt download, persisted theme controls, matched compact theme/language
-  pill switchers, and full-width rendered/source Markdown report panel.
+  routes, reference-fix worker, sign-in page, protected compact dashboard,
+  resilient drag-and-drop upload control, stable-size localized Settings modal
+  with App features/Settings tabs, Reference repair guidance, prompt download,
+  persisted theme/settings/latest-analysis state, matched compact theme/language
+  pill switchers, and full-width tabbed rendered/source Markdown report panel.
 - `auth.ts` configures Auth.js Google Sign-In, JWT sessions, and disabled-by-
   default test authentication. `proxy.ts` protects the dashboard and `/api/check`.
-- `tests/` contains Playwright UI/API tests, dedicated concurrent processing
-  coverage, and checker queue tests. `playwright.config.ts` targets desktop and
-  mobile Chromium against `PLAYWRIGHT_BASE_URL`.
+- `tests/` contains Playwright UI/API tests, reference extraction and repair
+  worker coverage, dedicated concurrent processing coverage, and checker queue
+  tests. `playwright.config.ts` targets desktop and mobile Chromium against
+  `PLAYWRIGHT_BASE_URL`.
 - `public/ceur_ws_reference_prompt.md` is the static ChatGPT prompt downloaded
-  from the Info modal for generating CEUR-WS references from URLs or DOIs.
+  from the Settings modal for generating CEUR-WS references from URLs or DOIs.
 - `README.md`, `CHANGELOG.md`, and `AGENTS.md` document usage and project state.
 - `report.md` is a generated sample output. Treat new reports as artifacts unless
   they are intentionally used as fixtures.
@@ -107,22 +112,26 @@ duplicates. Keep reference parsing in the Python helper rather than expanding
 complex text parsing in Bash.
 
 Return `2` for usage or input validation errors. Preserve nonzero exits for
-findings or checker failures.
+findings or checker failures. Keep structured reference JSON compatible when
+changing reference parsing because the web repair worker consumes it.
 
 Use TypeScript/React for the web UI. Keep Auth.js server-only code in server
 files (`auth.ts`, route handlers, server pages) and client-only browser behavior
 in `"use client"` components such as `app/checker-ui.tsx`. Render checker
 reports through the existing Markdown preview/source toggle; downloads should
 still save raw Markdown source and use analyzed-file-based names such as
-`report_paper.md`. Keep dashboard layout changes report-first: compact controls
-above an equal-width, full-width report surface, no notes surface, and no
-document scroll. Header controls should preserve the localized Info modal,
-Reference repair guidance, static `ceur_ws_reference_prompt.md` download link,
-localStorage-backed light/dark theme switcher, matching compact `UA`/`EN`
-language switcher, localized developer credit, and accessible labels even when
-visible labels are intentionally short. When backend error strings change,
-update the client `errorTranslations` map and Ukrainian/English copy together so
-server-origin failures remain localized.
+`report_paper.md`. Reference repair downloads should likewise save the raw
+repair Markdown, while previews may localize headings and explanatory text.
+Keep dashboard layout changes report-first: compact controls above an
+equal-width, full-width report surface, no notes surface, and no document
+scroll. Header controls should preserve the localized Settings modal, Reference
+repair guidance, static `ceur_ws_reference_prompt.md` download link,
+localStorage-backed light/dark theme switcher, persisted automatic reference fix
+setting/latest analysis, matching compact `UA`/`EN` language switcher,
+localized developer credit, and accessible labels even when visible labels are
+intentionally short. When backend error strings change, update the client
+`errorTranslations` map and Ukrainian/English copy together so server-origin
+failures remain localized.
 
 ## Testing Guidelines
 
@@ -137,9 +146,13 @@ and optional `index.html` or `watermark-log.txt` companions.
 For web or API changes, rebuild with Docker Compose and run Playwright in
 `mcr.microsoft.com/playwright:v1.60.0-noble`. Keep `/api/health` public and
 verify unauthenticated `/api/check` requests return `401` with a `requestId`
-for traceable proxy-originated errors. For upload/request handling changes,
-verify a valid PDF larger than 10 MB but below 30 MB, such as local `1111.pdf`
-when available, reaches checker processing instead of failing multipart parsing.
+for traceable proxy-originated errors. For reference-fix changes, cover the
+worker with mocked metadata responses, verify Crossref/DataCite timeout fallback,
+verify low-confidence suggestions are still generated with review notes, and
+verify preview localization does not alter raw Source/download Markdown. For
+upload/request handling changes, verify a valid PDF larger than 10 MB but below
+30 MB, such as local `1111.pdf` when available, reaches checker processing
+instead of failing multipart parsing.
 For queue or concurrent-processing changes, run
 `tests/concurrent-processing.spec.ts` with `CEUR_QUEUE_TIMEOUT_MS=600000` and
 `--project=chromium`; verify it uses `CEUR-Template-1col.odt`, the sample PDF,
@@ -149,16 +162,17 @@ For dashboard layout changes, preserve the no-document-scroll app shell, compact
 scrollable controls, equal dashboard/report widths, the enlarged report surface,
 and stable upload dropzone drag highlighting during nested drag movement.
 Verify compact viewports use internal scrolling for controls and report
-content. For header control changes, verify the Info modal, Reference repair
-guidance, ChatGPT prompt instructions, prompt download link,
-persisted dark/light theme, wordless theme switcher, compact `UA`/`EN` language
-switcher, localized developer credit, `role="switch"` and `aria-checked`
-semantics, theme/language switcher size parity, and accessible labels in both
-Ukrainian and English. For report rendering
-changes, verify both rendered Markdown preview and raw source mode. For API error
-changes, verify localized server-side errors in both Ukrainian and English. For
-report download changes, verify both raw Markdown content and the suggested
-filename derived from the analyzed manuscript.
+content. For header control changes, verify the Settings modal, Reference
+repair guidance, ChatGPT prompt instructions, prompt download link, modal size
+stability across tabs, persisted dark/light theme, persisted automatic reference
+fix setting, wordless theme switcher, compact `UA`/`EN` language switcher,
+localized developer credit, `role="switch"` and `aria-checked` semantics,
+theme/language switcher size parity, and accessible labels in both Ukrainian and
+English. For report rendering changes, verify rendered Markdown preview, raw
+source mode, the conditional `Література`/References fix tab, and latest-analysis
+restoration. For API error changes, verify localized server-side errors in both
+Ukrainian and English. For report download changes, verify both raw Markdown
+content and the suggested filename derived from the analyzed manuscript.
 
 ## Commit & Pull Request Guidelines
 
@@ -174,7 +188,10 @@ unless they are intentional fixtures.
 
 The image downloads executable CEUR scripts during build, relies on LibreOffice
 for office-manuscript conversion, and uses Poppler's `pdftotext` for rendered
-reference extraction. Review URL, checksum, conversion, or PDF text-extraction
+reference extraction. Automatic reference repair may contact Crossref and
+DataCite from the API route when enabled by the user; keep metadata lookup
+timeouts/fallbacks in place so external services cannot block checker results.
+Review URL, checksum, conversion, PDF text-extraction, or metadata lookup
 changes carefully. Do not bake private manuscripts into the image; mount inputs
 at runtime with `-v "$PWD:/work"`.
 
