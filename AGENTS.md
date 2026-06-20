@@ -147,7 +147,8 @@ the sample PDF plus DOCX/ODT manuscripts when conversion paths or font/reference
 reporting are touched. For font-check changes, verify evidence lines stay hidden
 by default and appear with `--font-evidence`. For reference-check changes, verify
 that reports include
-`## Reference Check`, `Reference status`, and `Reference errors`. For directory
+`## Reference Check`, `Reference status`, `Reference errors`, and the standard
+`doi:`/`URL:` guidance line before failing reference error entries. For directory
 handling changes, test a mounted directory with multiple supported manuscripts
 and optional `index.html` or `watermark-log.txt` companions.
 

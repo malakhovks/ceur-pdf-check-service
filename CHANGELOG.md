@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added a standard `doi:`/`URL:` reminder before failed reference-check errors so authors see the required CEURART prefixes directly in the report.
 - Added supplemental non-Libertinus font detection with a packaged `ceur-font-check` helper, merged into `ceur-pdf-check` reports when rendered PDF text uses unexpected body or heading fonts.
 - Kept supplemental font reports quiet by default while adding opt-in evidence lines through `ceur-pdf-check --font-evidence` and the Settings checkbox for showing DejaVu/font evidence.
 - Added regression coverage for default-hidden font evidence, evidence-enabled reports, Settings persistence, API propagation, and Bobok DOCX/PDF font behavior.

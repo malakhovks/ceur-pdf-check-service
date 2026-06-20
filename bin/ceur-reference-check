@@ -15,6 +15,7 @@ from pathlib import Path
 YEAR_RE = re.compile(r"\b(?:19|20)\d{2}[a-z]?\b", re.IGNORECASE)
 LABEL_RE = re.compile(r"(?<!\w)\[(\d{1,3})\]\s+")
 MALFORMED_LABEL_RE = re.compile(r"(?m)^\s*(?:\[\D+[^\]]*\]|\(?\d{1,3}\)?[.)])\s+")
+REFERENCE_PREFIX_GUIDANCE = "Обов'язково поставте слово `doi:` перед відповідним кодом та слово `URL:` перед усіма іншими посиланнями."
 RAW_MARKUP_RE = re.compile(
   r"(?:\\(?:bibitem|bibliography|cite|url|doi|begin|end)\b|"
   r"@\s*(?:article|book|inproceedings|incollection|inbook|misc|"
@@ -211,6 +212,7 @@ def render_markdown(results: list[CheckResult]) -> str:
     lines.append(f"- Status: {status}")
     lines.append(f"- References detected: {result.reference_count}")
     if result.errors:
+      lines.append(REFERENCE_PREFIX_GUIDANCE)
       for error in result.errors:
         lines.append(f"- ERROR: {markdown_text(error)}")
     else:
