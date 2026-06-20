@@ -172,7 +172,8 @@ The helper extracts each checked PDF's rendered text with Poppler and validates
 that the References section follows CEURART-style output: bracketed numbered
 entries, sequential labels, publication years, and rendered DOI/URL prefixes
 such as `doi:` and `URL:`. Reference errors are included in
-`## Reference Check` and fail the overall report status. For API repair
+`## Reference Check` with a standard reminder to use `doi:` before DOI codes
+and `URL:` before other links, and fail the overall report status. For API repair
 features, `ceur-pdf-check --reference-json-output references.json` writes the
 structured extracted reference section and parsed entries next to the Markdown
 report.

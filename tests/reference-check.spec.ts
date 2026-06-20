@@ -7,6 +7,7 @@ import { expect, test } from "@playwright/test";
 
 const execFileAsync = promisify(execFile);
 const checkerPath = path.resolve("bin/ceur-reference-check");
+const REFERENCE_PREFIX_GUIDANCE = "Обов'язково поставте слово `doi:` перед відповідним кодом та слово `URL:` перед усіма іншими посиланнями.";
 
 async function writeTextFixture(content: string) {
   const directory = await mkdtemp(path.join(tmpdir(), "ceur-reference-test-"));
@@ -164,6 +165,7 @@ test("passes CEURART-style numbered references", async () => {
   expect(result.stdout).toContain("No reference errors were detected.");
   expect(result.stdout).toContain("- Status: pass");
   expect(result.stdout).toContain("- References detected: 3");
+  expect(result.stdout).not.toContain(REFERENCE_PREFIX_GUIDANCE);
 });
 
 test("writes structured reference extraction JSON", async () => {
@@ -234,8 +236,13 @@ test("fails DOI and URL values without CEURART prefixes", async () => {
   ].join("\n"));
 
   expect(result.exitCode).toBe(1);
-  expect(result.stdout).toContain("DOI values must be rendered with the CEURART prefix");
-  expect(result.stdout).toContain("URLs must be rendered with the CEURART prefix");
+  const guidanceIndex = result.stdout.indexOf(REFERENCE_PREFIX_GUIDANCE);
+  const doiErrorIndex = result.stdout.indexOf("DOI values must be rendered with the CEURART prefix");
+  const urlErrorIndex = result.stdout.indexOf("URLs must be rendered with the CEURART prefix");
+
+  expect(guidanceIndex).toBeGreaterThanOrEqual(0);
+  expect(doiErrorIndex).toBeGreaterThan(guidanceIndex);
+  expect(urlErrorIndex).toBeGreaterThan(guidanceIndex);
 });
 
 test("converts supported single-file manuscript formats before building reports", async () => {
@@ -537,6 +544,7 @@ test("adds reference check failures to the Markdown report", async () => {
     "### paper.pdf",
     "- Status: fail",
     "- References detected: 0",
+    REFERENCE_PREFIX_GUIDANCE,
     "- ERROR: Reference section was not found.",
     "EOF",
     "exit 1",
@@ -568,5 +576,6 @@ test("adds reference check failures to the Markdown report", async () => {
   expect(report).toContain("| Reference status | fail |");
   expect(report).toContain("| Reference errors | 1 |");
   expect(report).toContain("## Reference Check");
+  expect(report).toContain(REFERENCE_PREFIX_GUIDANCE);
   expect(report).toContain("- ERROR: Reference section was not found.");
 });
