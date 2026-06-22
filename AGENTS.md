@@ -28,18 +28,21 @@ official CEUR-WS `check-pdf-errors` checker.
   emit structured JSON with the extracted section, parsed entries, and per-entry
   errors.
 - `app/` contains the Next.js App Router UI, Auth.js routes, health/check API
-  routes, reference-fix worker, sign-in page, protected compact dashboard,
-  resilient drag-and-drop upload control, stable-size localized Settings modal
-  with App features/Settings tabs, Reference repair guidance, prompt download,
-  persisted theme/settings/latest-analysis state, opt-in DejaVu/font evidence
-  setting, matched compact theme/language pill switchers, and full-width tabbed
+  routes, the testable check handler, structured logging helper, reference-fix
+  worker, sign-in page, protected compact dashboard, resilient drag-and-drop
+  upload control, stable-size localized Settings modal with App
+  features/Settings tabs, Reference repair guidance, prompt download, persisted
+  theme/settings/latest-analysis state, opt-in DejaVu/font evidence setting,
+  matched compact theme/language pill switchers, and full-width tabbed
   rendered/source Markdown report panel.
 - `auth.ts` configures Auth.js Google Sign-In, JWT sessions, and disabled-by-
-  default test authentication. `proxy.ts` protects the dashboard and `/api/check`.
-- `tests/` contains Playwright UI/API tests, reference extraction and repair
-  worker coverage, dedicated concurrent processing coverage, and checker queue
-  tests. `playwright.config.ts` targets desktop and mobile Chromium against
-  `PLAYWRIGHT_BASE_URL`.
+  default test authentication. `proxy.ts` protects the dashboard and `/api/check`;
+  `proxy-auth-response.ts` keeps proxy-originated API authentication errors
+  traceable and logged.
+- `tests/` contains Playwright UI/API tests, structured logging coverage,
+  reference extraction and repair worker coverage, dedicated concurrent
+  processing coverage, and checker queue tests. `playwright.config.ts` targets
+  desktop and mobile Chromium against `PLAYWRIGHT_BASE_URL`.
 - `public/ceur_ws_reference_prompt.md` is the static ChatGPT prompt downloaded
   from the Settings modal for generating CEUR-WS references from URLs or DOIs.
 - `README.md`, `CHANGELOG.md`, and `AGENTS.md` document usage and project state.
@@ -121,6 +124,12 @@ Return `2` for usage or input validation errors. Preserve nonzero exits for
 findings or checker failures. Keep structured reference JSON compatible when
 changing reference parsing because the web repair worker consumes it.
 
+Keep server operational logs structured through `app/logging.ts`. Include
+traceable fields such as `requestId`, queue snapshots, status, exit code, and
+output lengths, but do not log raw manuscripts or full checker output. Keep the
+`/api/check` route as an Auth.js wrapper and put testable request/checker logic
+in the check handler.
+
 Use TypeScript/React for the web UI. Keep Auth.js server-only code in server
 files (`auth.ts`, route handlers, server pages) and client-only browser behavior
 in `"use client"` components such as `app/checker-ui.tsx`. Render checker
@@ -155,7 +164,10 @@ and optional `index.html` or `watermark-log.txt` companions.
 For web or API changes, rebuild with Docker Compose and run Playwright in
 `mcr.microsoft.com/playwright:v1.60.0-noble`. Keep `/api/health` public and
 verify unauthenticated `/api/check` requests return `401` with a `requestId`
-for traceable proxy-originated errors. For reference-fix changes, cover the
+for traceable proxy-originated errors. For structured logging changes, run the
+focused logging specs covering logger serialization, route/API log events,
+checker queue decisions, checker subprocess lifecycle, reference-fix fallback
+paths, and proxy authentication logs. For reference-fix changes, cover the
 worker with mocked metadata responses, verify Crossref/DataCite timeout fallback,
 verify low-confidence suggestions are still generated with review notes, and
 verify preview localization does not alter raw Source/download Markdown. For

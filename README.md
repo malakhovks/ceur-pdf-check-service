@@ -51,7 +51,12 @@ header switchers avoid full visible labels while keeping accessible names. The
 dashboard localizes checker/API errors in Ukrainian and English, including
 upload parsing, queue, timeout, and missing report failures. Unauthenticated protected API errors
 include a `requestId` for consistent troubleshooting across proxy and route
-responses. The Next.js proxy upload body cap is configured above the app's
+responses. The API emits structured JSON logs for request receipt/rejection,
+accepted uploads, checker queue slot decisions, checker subprocess lifecycle,
+report production or fallback, reference-fix metadata fallback, and cleanup
+failures. Logs include correlation fields such as `requestId`, filename, queue
+snapshot, status, exit code, and output lengths without writing raw manuscripts
+or full checker output to the log stream. The Next.js proxy upload body cap is configured above the app's
 30 MB manuscript limit, so valid larger PDFs such as `1111.pdf` reach the
 checker instead of failing during multipart parsing.
 
@@ -247,6 +252,12 @@ docker run --rm --network host \
   -v "$PWD:/work" \
   -v ceur-pdf-check-node-modules:/work/node_modules \
   -w /work \
+  mcr.microsoft.com/playwright:v1.60.0-noble \
+  ./node_modules/.bin/playwright test tests/logging.spec.ts tests/checker-queue.spec.ts tests/reference-fix.spec.ts tests/checker-process-logging.spec.ts tests/check-route-logging.spec.ts tests/proxy-logging.spec.ts --project=chromium
+docker run --rm --network host \
+  -v "$PWD:/work" \
+  -v ceur-pdf-check-node-modules:/work/node_modules \
+  -w /work \
   -e PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
   mcr.microsoft.com/playwright:v1.60.0-noble npm run test:e2e
 docker compose --env-file .env down
@@ -266,7 +277,10 @@ rendered Markdown reports, source-mode Markdown, raw report downloads with
 analyzed-file-based filenames, localized References fix preview/source/download
 behavior, internal report scrolling, stale response handling, supported
 manuscript selection, converted-manuscript regressions, real PDF checks, and
-dedicated 2/4/8 concurrent document-processing requests.
+dedicated 2/4/8 concurrent document-processing requests. Focused logging specs
+cover structured JSON serialization, route/API log events, queue decisions,
+checker subprocess lifecycle, reference-fix fallback paths, and proxy-originated
+authentication rejection logs.
 
 The local API route expects `ceur-pdf-check` to be available on `PATH`. The
 Docker image provides that automatically.

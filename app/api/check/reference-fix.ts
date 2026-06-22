@@ -1,6 +1,7 @@
 import { Cite } from "@citation-js/core";
 import "@citation-js/plugin-bibtex";
 import "@citation-js/plugin-csl";
+import { errorLogFields, logger as defaultLogger, type AppLogger } from "../../logging";
 
 export type ReferenceEntryData = {
   label: number;
@@ -28,6 +29,12 @@ export type ReferenceFixResult = {
 };
 
 type FetchLike = typeof fetch;
+
+type ReferenceFixLogContext = {
+  logger: AppLogger;
+  requestId?: string;
+  filename?: string;
+};
 
 type CslName = {
   given?: string;
@@ -321,16 +328,44 @@ function heuristicItem(entry: ReferenceEntryData): CslItem {
   };
 }
 
-async function candidateForEntry(fetchImpl: FetchLike, entry: ReferenceEntryData): Promise<Candidate> {
+async function candidateForEntry(
+  fetchImpl: FetchLike,
+  entry: ReferenceEntryData,
+  context: ReferenceFixLogContext,
+): Promise<Candidate> {
   const doi = extractDoi(entry.text);
+
+  const lookupCandidates = async (source: "Crossref" | "DataCite", lookup: () => Promise<Candidate[]>) => {
+    try {
+      return await lookup();
+    } catch (error) {
+      context.logger.warn("reference_fix.metadata_lookup_failed", {
+        requestId: context.requestId,
+        filename: context.filename,
+        entryLabel: entry.label,
+        source,
+        hasDoi: Boolean(doi),
+        ...errorLogFields(error),
+      });
+      return [];
+    }
+  };
+
   const candidates = [
-    ...(await crossrefCandidates(fetchImpl, entry, doi).catch(() => [])),
-    ...(await dataciteCandidates(fetchImpl, entry, doi).catch(() => [])),
+    ...(await lookupCandidates("Crossref", () => crossrefCandidates(fetchImpl, entry, doi))),
+    ...(await lookupCandidates("DataCite", () => dataciteCandidates(fetchImpl, entry, doi))),
   ].sort((left, right) => right.confidence - left.confidence);
 
   if (candidates[0]) {
     return candidates[0];
   }
+
+  context.logger.warn("reference_fix.metadata_fallback", {
+    requestId: context.requestId,
+    filename: context.filename,
+    entryLabel: entry.label,
+    hasDoi: Boolean(doi),
+  });
 
   const item = heuristicItem(entry);
   return {
@@ -517,16 +552,35 @@ function renderMarkdown(filename: string, repairs: Repair[], warnings: string[])
 
 export async function buildReferenceFix(
   referenceData: ReferenceCheckJson,
-  options: { filename: string; fetchImpl?: FetchLike },
+  options: { filename: string; fetchImpl?: FetchLike; logger?: AppLogger; requestId?: string },
 ): Promise<ReferenceFixResult> {
+  const logContext: ReferenceFixLogContext = {
+    logger: options.logger || defaultLogger,
+    requestId: options.requestId,
+    filename: options.filename,
+  };
   const failedResults = (referenceData.results || []).filter((result) => result.errors?.length);
   const entries = failedResults.flatMap((result) => result.entries || []);
+  const logFields = {
+    requestId: options.requestId,
+    filename: options.filename,
+    failedResultCount: failedResults.length,
+    entryCount: entries.length,
+  };
 
   if (!failedResults.length) {
+    logContext.logger.info("reference_fix.skipped", {
+      ...logFields,
+      reason: "no_reference_errors",
+    });
     return { status: "skipped", warning: "No reference issues were detected." };
   }
 
   if (!entries.length) {
+    logContext.logger.warn("reference_fix.unavailable", {
+      ...logFields,
+      reason: "no_numbered_entries",
+    });
     return {
       status: "unavailable",
       markdown: [
@@ -543,12 +597,14 @@ export async function buildReferenceFix(
     };
   }
 
+  logContext.logger.info("reference_fix.started", logFields);
+
   const fetchImpl = options.fetchImpl || fetch;
   const repairs: Repair[] = [];
   const warnings: string[] = [];
 
   for (const entry of entries) {
-    const candidate = await candidateForEntry(fetchImpl, entry);
+    const candidate = await candidateForEntry(fetchImpl, entry, logContext);
     const confidence = Number(candidate.confidence.toFixed(2));
     const label = confidenceLabel(confidence);
     const suggestion = formatCeurReference(candidate.item, entry.text);
@@ -573,6 +629,15 @@ export async function buildReferenceFix(
   if (repairs.some((repair) => repair.provenance === "Extracted text")) {
     warnings.push("Some suggestions were reconstructed from extracted text because external metadata lookup did not return a reliable match.");
   }
+
+  logContext.logger.info("reference_fix.completed", {
+    ...logFields,
+    status: "generated",
+    highConfidence: repairs.filter((repair) => repair.confidenceLabel === "high").length,
+    mediumConfidence: repairs.filter((repair) => repair.confidenceLabel === "medium").length,
+    lowConfidence: repairs.filter((repair) => repair.confidenceLabel === "low").length,
+    fallbackCount: repairs.filter((repair) => repair.provenance === "Extracted text").length,
+  });
 
   return {
     status: "generated",

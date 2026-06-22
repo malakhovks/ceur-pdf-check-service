@@ -1,3 +1,5 @@
+import { logger as defaultLogger, type AppLogger } from "../../logging";
+
 export type CheckerQueueOptions = {
   maxConcurrent: number;
   maxQueued: number;
@@ -70,9 +72,11 @@ export class CheckerQueue {
   private active = 0;
   private pending: PendingJob[] = [];
   private options: CheckerQueueOptions;
+  private logger: AppLogger;
 
-  constructor(options: CheckerQueueOptions) {
+  constructor(options: CheckerQueueOptions, logger: AppLogger = defaultLogger) {
     this.options = normalizeOptions(options);
+    this.logger = logger;
   }
 
   snapshot() {
@@ -104,16 +108,30 @@ export class CheckerQueue {
 
     if (this.active < this.options.maxConcurrent) {
       this.active += 1;
+      this.logger.info("checker.queue.slot_acquired", {
+        requestId,
+        queuedMs: 0,
+        ...this.snapshot(),
+      });
       return Promise.resolve(this.createLease(requestId, createdAt));
     }
 
     if (this.pending.length >= this.options.maxQueued) {
+      this.logger.warn("checker.queue.rejected_full", {
+        requestId,
+        ...this.snapshot(),
+      });
       return Promise.reject(new QueueOverloadError("The checker is busy. Try again shortly."));
     }
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.removePending(requestId);
+        this.logger.warn("checker.queue.timed_out", {
+          requestId,
+          queuedMs: Date.now() - createdAt,
+          ...this.snapshot(),
+        });
         reject(new QueueOverloadError("The checker is busy and this request waited too long for a slot."));
       }, this.options.queueTimeoutMs);
 
@@ -123,6 +141,11 @@ export class CheckerQueue {
         resolve,
         reject,
         timer,
+      });
+      this.logger.info("checker.queue.enqueued", {
+        requestId,
+        queuePosition: this.pending.length,
+        ...this.snapshot(),
       });
     });
   }
@@ -140,6 +163,10 @@ export class CheckerQueue {
 
         released = true;
         this.active = Math.max(0, this.active - 1);
+        this.logger.info("checker.queue.slot_released", {
+          requestId,
+          ...this.snapshot(),
+        });
         this.drain();
       },
     };
@@ -154,6 +181,11 @@ export class CheckerQueue {
 
       clearTimeout(next.timer);
       this.active += 1;
+      this.logger.info("checker.queue.dequeued", {
+        requestId: next.requestId,
+        queuedMs: Date.now() - next.createdAt,
+        ...this.snapshot(),
+      });
       next.resolve(this.createLease(next.requestId, next.createdAt));
     }
   }
@@ -166,8 +198,8 @@ export class CheckerQueue {
   }
 }
 
-export function createCheckerQueue(options: CheckerQueueOptions) {
-  return new CheckerQueue(options);
+export function createCheckerQueue(options: CheckerQueueOptions, logger?: AppLogger) {
+  return new CheckerQueue(options, logger);
 }
 
 const checkerQueue = createCheckerQueue(readCheckerQueueOptions());
