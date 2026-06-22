@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "./auth";
+import { authRequiredCheckResponse } from "./proxy-auth-response";
 
 export const proxy = auth((request) => {
   const isSignedIn = Boolean(request.auth?.user);
@@ -7,10 +8,7 @@ export const proxy = auth((request) => {
 
   if (pathname.startsWith("/api/check")) {
     if (!isSignedIn) {
-      return NextResponse.json(
-        { requestId: crypto.randomUUID(), status: "error", error: "Authentication required." },
-        { status: 401 },
-      );
+      return authRequiredCheckResponse(crypto.randomUUID(), pathname);
     }
 
     return NextResponse.next();

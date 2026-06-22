@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added structured JSON server logging for `/api/check`, checker queue slot
+  decisions, checker subprocess lifecycle, reference repair metadata fallback,
+  report generation failures, cleanup failures, and proxy-originated
+  authentication rejections.
+- Split the check API implementation into a testable handler module while keeping
+  the App Router route as a thin Auth.js wrapper.
+- Added focused Playwright coverage for structured logger output, queue log
+  events, checker process start/completion/error/timeout logs, route rejection
+  and report logs, reference-fix fallback logs, and proxy authentication logs.
 - Added a standard `doi:`/`URL:` reminder before failed reference-check errors so authors see the required CEURART prefixes directly in the report.
 - Added supplemental non-Libertinus font detection with a packaged `ceur-font-check` helper, merged into `ceur-pdf-check` reports when rendered PDF text uses unexpected body or heading fonts.
 - Kept supplemental font reports quiet by default while adding opt-in evidence lines through `ceur-pdf-check --font-evidence` and the Settings checkbox for showing DejaVu/font evidence.
