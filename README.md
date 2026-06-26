@@ -37,9 +37,10 @@ Markdown emitted by the checker. When automatic reference fix is enabled, the
 same report surface adds a `Література`/References fix tab for detected
 reference issues and downloads the repair bundle as `references_fix_<stem>.md`.
 
-The dashboard header includes project links, localized developer credit, a
-localized Settings modal, a persisted light/dark theme switcher, and a matching
-compact `UA`/`EN` language switcher. The stable-size Settings modal has App
+The dashboard header shows the `CEURCheck` title and includes the project
+repository link, a localized MonoBank donation link, localized developer credit,
+a localized Settings modal, a persisted light/dark theme switcher, and a
+matching compact `UA`/`EN` language switcher. The stable-size Settings modal has App
 features and Settings tabs: App features explains supported checks, Reference
 mistake repair, and the ChatGPT prompt workflow; Settings contains opt-in
 checkboxes for automatic reference fix and DejaVu/font evidence lines. Font
