@@ -29,9 +29,10 @@ official CEUR-WS `check-pdf-errors` checker.
   errors.
 - `app/` contains the Next.js App Router UI, Auth.js routes, health/check API
   routes, the testable check handler, structured logging helper, reference-fix
-  worker, sign-in page, protected compact dashboard, resilient drag-and-drop
-  upload control, stable-size localized Settings modal with App
-  features/Settings tabs, Reference repair guidance, prompt download, persisted
+  worker, sign-in page, protected compact `CEURCheck` dashboard with a
+  localized MonoBank donation link, resilient drag-and-drop upload control,
+  stable-size localized Settings modal with App features/Settings tabs,
+  Reference repair guidance, prompt download, persisted
   theme/settings/latest-analysis state, opt-in DejaVu/font evidence setting,
   matched compact theme/language pill switchers, and full-width tabbed
   rendered/source Markdown report panel.
@@ -139,9 +140,10 @@ still save raw Markdown source and use analyzed-file-based names such as
 repair Markdown, while previews may localize headings and explanatory text.
 Keep dashboard layout changes report-first: compact controls above an
 equal-width, full-width report surface, no notes surface, and no document
-scroll. Header controls should preserve the localized Settings modal, Reference
-repair guidance, static `ceur_ws_reference_prompt.md` download link,
-localStorage-backed light/dark theme switcher, persisted automatic reference fix
+scroll. Header controls should preserve the `CEURCheck` title, localized MonoBank
+donation link, localized Settings modal, Reference repair guidance, static
+`ceur_ws_reference_prompt.md` download link, localStorage-backed light/dark
+theme switcher, persisted automatic reference fix
 and font evidence settings/latest analysis, matching compact `UA`/`EN`
 language switcher, localized developer credit, and accessible labels even when
 visible labels are intentionally short. When backend error strings change, update the client

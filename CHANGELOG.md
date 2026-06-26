@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Updated the dashboard header to use the `CEURCheck` title and added a
+  localized MonoBank donation link alongside the project and developer links.
 - Added structured JSON server logging for `/api/check`, checker queue slot
   decisions, checker subprocess lifecycle, reference repair metadata fallback,
   report generation failures, cleanup failures, and proxy-originated

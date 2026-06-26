@@ -82,6 +82,7 @@ type Translation = {
     title: string;
     subtitle: string;
     github: string;
+    donate: string;
     developer: string;
     info: string;
     language: string;
@@ -157,9 +158,10 @@ const translations: Record<Language, Translation> = {
   uk: {
     locale: "uk",
     meta: {
-      title: "CEUR PDF Check",
+      title: "CEURCheck",
       subtitle: "Перевірка рукопису для CEUR-WS",
       github: "GitHub",
+      donate: "Донат",
       developer: "Розробник",
       info: "Налаштування",
       language: "Мова інтерфейсу",
@@ -273,9 +275,10 @@ const translations: Record<Language, Translation> = {
   en: {
     locale: "en",
     meta: {
-      title: "CEUR PDF Check",
+      title: "CEURCheck",
       subtitle: "Manuscript validation report generator",
       github: "GitHub",
+      donate: "Donate",
       developer: "Developer",
       info: "Settings",
       language: "Interface language",
@@ -1008,6 +1011,15 @@ export default function CheckerUi({ user }: { user: SignedInUser }) {
             >
               <GitBranch className="h-4 w-4" />
               {t.meta.github}
+            </a>
+            <a
+              href="https://send.monobank.ua/jar/5ad56oNAcD"
+              target="_blank"
+              rel="noreferrer"
+              className="control-surface inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold transition focus-ring"
+            >
+              <span>{t.meta.donate}</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             </a>
             <a
               data-testid="developer-credit"

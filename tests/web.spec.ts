@@ -214,7 +214,7 @@ test("shows Ukrainian UI by default and switches to English", async ({ page }) =
   const header = page.getByTestId("dashboard-header");
   const themeSwitcher = header.getByTestId("theme-switcher");
   const languageSwitcher = header.getByTestId("language-switcher");
-  const dashboardHeading = page.getByRole("heading", { name: "CEUR PDF Check" });
+  const dashboardHeading = page.getByRole("heading", { name: "CEURCheck" });
   await expect(dashboardHeading).toBeVisible();
   await expect.poll(async () => dashboardHeading.evaluate((element) => getComputedStyle(element).fontSize)).toBe("24px");
   await expect(page.getByText("Перевірка рукопису для CEUR-WS")).toBeVisible();
@@ -266,6 +266,7 @@ test("shows developer credit and fixed project links in the header", async ({ pa
 
   const header = page.getByTestId("dashboard-header");
   await expect(header.getByRole("link", { name: "GitHub" })).toHaveAttribute("href", "https://github.com/malakhovks/ceur-pdf-check-service");
+  await expect(header.getByRole("link", { name: "Донат" })).toHaveAttribute("href", "https://send.monobank.ua/jar/5ad56oNAcD");
 
   const credit = header.getByTestId("developer-credit");
   await expect(credit).toHaveAttribute("href", "https://linktr.ee/malakhovks");
@@ -283,6 +284,7 @@ test("shows developer credit and fixed project links in the header", async ({ pa
   await expect(header.getByTestId("developer-credit-date")).toHaveText(expectedDate);
 
   await switchToEnglish(page);
+  await expect(header.getByRole("link", { name: "Donate" })).toHaveAttribute("href", "https://send.monobank.ua/jar/5ad56oNAcD");
   await expect(credit).toContainText("Developer");
   await expect(credit).toContainText("MalakhovKS");
   await expectNoDocumentScroll(page);
