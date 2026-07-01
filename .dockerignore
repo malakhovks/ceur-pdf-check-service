@@ -13,3 +13,4 @@ test-results
 ceur-pdf-check-report.md
 report.md
 __pycache__/
+eval/
