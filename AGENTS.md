@@ -46,7 +46,9 @@ official CEUR-WS `check-pdf-errors` checker.
   desktop and mobile Chromium against `PLAYWRIGHT_BASE_URL`.
 - `public/ceur_ws_reference_prompt.md` is the static ChatGPT prompt downloaded
   from the Settings modal for generating CEUR-WS references from URLs or DOIs.
-- `README.md`, `CHANGELOG.md`, and `AGENTS.md` document usage and project state.
+- `README.md` is bilingual, with a top-level language chooser and mirrored
+  English/Ukrainian sections. `CHANGELOG.md` and `AGENTS.md` document usage
+  and project state.
 - Published evaluation artifacts for the ProfIT AI 2026 manuscript live in the
   Hugging Face dataset `malakhovks/ceurcheck-profitai2026-evaluation-artifacts`
   with DOI `10.57967/hf/9380`. Treat local `eval/` directories as disposable
@@ -142,6 +144,12 @@ reports through the existing Markdown preview/source toggle; downloads should
 still save raw Markdown source and use analyzed-file-based names such as
 `report_paper.md`. Reference repair downloads should likewise save the raw
 repair Markdown, while previews may localize headings and explanatory text.
+Keep README changes synchronized across the English and Ukrainian sections.
+The top language chooser should continue linking to both sections, copied
+commands/env vars/URLs must stay identical between languages, and technical
+identifiers such as route names, filenames, and setting labels should remain
+literal when that avoids ambiguity.
+
 Keep dashboard layout changes report-first: compact controls above an
 equal-width, full-width report surface, no notes surface, and no document
 scroll. Header controls should preserve the `CEURCheck` title, localized MonoBank
