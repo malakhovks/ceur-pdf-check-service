@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Published the ProfIT AI 2026 CEURCheck evaluation artifacts as a Hugging Face
+  dataset with DOI `10.57967/hf/9380`, linked the dataset from the README, and
+  excluded generated local `eval/` artifacts from the repository and Docker
+  build context.
 - Updated the dashboard header to use the `CEURCheck` title and added a
   localized MonoBank donation link alongside the project and developer links.
 - Added structured JSON server logging for `/api/check`, checker queue slot

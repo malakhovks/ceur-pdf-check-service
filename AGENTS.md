@@ -47,11 +47,15 @@ official CEUR-WS `check-pdf-errors` checker.
 - `public/ceur_ws_reference_prompt.md` is the static ChatGPT prompt downloaded
   from the Settings modal for generating CEUR-WS references from URLs or DOIs.
 - `README.md`, `CHANGELOG.md`, and `AGENTS.md` document usage and project state.
+- Published evaluation artifacts for the ProfIT AI 2026 manuscript live in the
+  Hugging Face dataset `malakhovks/ceurcheck-profitai2026-evaluation-artifacts`
+  with DOI `10.57967/hf/9380`. Treat local `eval/` directories as disposable
+  generated artifacts and do not commit them.
 - `report.md` is a generated sample output. Treat new reports as artifacts unless
   they are intentionally used as fixtures.
 - `.dockerignore` excludes PDFs, DOCX, DOC, ODT, logs, generated reports,
-  Playwright artifacts, `.next`, and dependency directories from the Docker
-  build context.
+  local `eval/` artifacts, Playwright artifacts, `.next`, and dependency
+  directories from the Docker build context.
 
 ## Build, Test, and Development Commands
 

@@ -14,3 +14,4 @@ report.md
 __pycache__/
 bin/__pycache__/
 *.tsbuildinfo
+eval/

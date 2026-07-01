@@ -1,5 +1,8 @@
 # CEUR PDF Check
 
+[![Evaluation Dataset DOI](https://img.shields.io/badge/DOI-10.57967%2Fhf%2F9380-blue)](https://doi.org/10.57967/hf/9380)
+[![Hugging Face Dataset](https://img.shields.io/badge/Hugging%20Face-Dataset-yellow)](https://huggingface.co/datasets/malakhovks/ceurcheck-profitai2026-evaluation-artifacts)
+
 Dockerized web and CLI service for checking CEUR-WS manuscripts in PDF, DOCX,
 DOC, and ODT formats. DOCX, DOC, and ODT manuscripts are converted to PDF with
 LibreOffice before the official `check-pdf-errors` tool and rendered
@@ -8,6 +11,20 @@ also adds supplemental non-Libertinus font detection, with detailed evidence
 lines hidden by default. When enabled in Settings, the web app can generate a
 manual CEUR reference repair bundle for manuscripts with reference issues and
 show DejaVu/font evidence lines for font findings.
+
+## Evaluation Artifacts
+
+The evaluation artifacts for the ProfIT AI 2026 article "CEURCheck: An
+Explainable Rule-Based System for Multi-Format CEUR-WS Manuscript Compliance
+Validation" are published as a Hugging Face dataset:
+
+- DOI: <https://doi.org/10.57967/hf/9380>
+- Dataset: <https://huggingface.co/datasets/malakhovks/ceurcheck-profitai2026-evaluation-artifacts>
+
+Generated evaluation corpora, reports, logs, draft exports, and diagram renders
+are intentionally not stored in this repository. Keep local `eval/` directories
+as disposable generated artifacts and use the dataset DOI for citation and
+reproducibility.
 
 ## Web UI
 
