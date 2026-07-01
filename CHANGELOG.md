@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- Added a bilingual README structure with English and Ukrainian sections, a
+  top-level language chooser, and matching copied command blocks so both
+  language paths document the current CEURCheck web, CLI, reference repair,
+  logging, and evaluation-artifact state.
 - Published the ProfIT AI 2026 CEURCheck evaluation artifacts as a Hugging Face
   dataset with DOI `10.57967/hf/9380`, linked the dataset from the README, and
   excluded generated local `eval/` artifacts from the repository and Docker
